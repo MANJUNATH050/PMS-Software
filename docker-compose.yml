@@ -1,102 +1,61 @@
 services:
-<<<<<<< HEAD
-
   postgres:
     image: postgres:15-alpine
-    container_name: pms_postgres
-
+    container_name: pms-postgres
+    ports:
+      - "5433:5432"
     environment:
       - POSTGRES_DB=pms_db
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
-
-    ports:
-      - "5433:5432"
-
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d pms_db" ]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  backend:
-    build: ./backend
-    container_name: pms_backend
-
-    ports:
-      - "8080:8080"
-
-    environment:
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_NAME=pms_db
-      - DB_USERNAME=postgres
-      - DB_PASSWORD=postgres
-
-    depends_on:
-      postgres:
-        condition: service_healthy
-
-    volumes:
-      - ./reports:/app/reports
-
-  frontend:
-    build: ./frontend
-    container_name: pms_frontend
-
-    ports:
-      - "80:80"
-
-    depends_on:
-      - backend
-
-volumes:
-  pgdata:
-=======
-  postgres:
-    image: postgres:16-alpine
-    container_name: pms-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: pms_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: root
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pms-pgadmin
+    ports:
+      - "5050:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@admin.com
+      - PGADMIN_DEFAULT_PASSWORD=admin
+    depends_on:
+      - postgres
+    restart: unless-stopped
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: pms-backend
+    ports:
+      - "8085:8085"
+    environment:
+      - PORT=8085
+      - DB_URL=jdbc:postgresql://postgres:5432/pms_db
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=postgres
+      - DB_DRIVER=org.postgresql.Driver
+      - DB_DIALECT=org.hibernate.dialect.PostgreSQLDialect
+      - JWT_SECRET=K7mQ2xP9vL4nR8sT3wY6aB1cD5eF0gH2
+      - JWT_EXPIRATION=86400000
+      - FRONTEND_URL=http://localhost:3000
     depends_on:
       - postgres
     restart: unless-stopped
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/pms_db
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: root
-      JWT_SECRET: ThisIsASecretKeyForPMSAuthenticationThatMustBeLongEnough
-    ports:
-      - "8081:8081"
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: pms-frontend
+    ports:
+      - "3000:80"
+      - "5173:80"
     depends_on:
       - backend
     restart: unless-stopped
-    ports:
-      - "5173:80"
 
 volumes:
   postgres_data:
->>>>>>> 7e242a5ead40c3cafff0fc936fda8630cb8d09d3

@@ -1,176 +1,153 @@
-<<<<<<< HEAD
-# Performance Management System (PMS) — Employee Module
+# Performance Management System - HR Module
 
-Enterprise-grade, containerized Performance Management System (PMS) Employee Module built using Spring Boot, React + TS + Vite, Tailwind CSS v4, and PostgreSQL.
+A production-oriented HR slice for the shared PMS application. This repository intentionally contains only HR login, JWT-secured HR navigation, dashboard summaries/activity, and employee creation. Manager, Employee, and Admin modules are reserved for future team contributions.
 
-## Repository Directory Layout
+## Architecture
 
-```text
-PMS-ASEURO/
-├── docker-compose.yml           # Container orchestration
-├── backend/                     # Spring Boot Rest API (Java 17 / Maven)
-│   ├── pom.xml                  # Backend dependency tree
-│   ├── Dockerfile               # Backend production build instructions
-│   └── src/
-│       ├── main/java/...        # Java source code
-│       └── main/resources/...   # Server configuration & seeding
-├── frontend/                    # Vite + React + TS App
-│   ├── package.json             # Frontend package configurations
-│   ├── tailwind.config.js       # Core Tailwind CSS settings
-│   ├── nginx.conf               # Web server serving configs
-│   ├── Dockerfile               # Frontend production build instructions
-│   └── src/                     # React source files (api, pages, layouts)
-└── e2e/                         # Playwright E2E Testing Suite
-    ├── playwright.config.ts     # Playwright configuration
-    └── tests/...                # Test specs (Login, Assessment, History)
-```
+`frontend` is a JavaScript React/Vite client. `backend` is a Java 17 Spring Boot REST service. PostgreSQL remains the source of truth; Hibernate is configured with `ddl-auto: validate` and no migrations or replacement schema are included.
 
----
+## Features
 
-## Technical Stack & Configuration Details
+- `/hr/login`: frontend validation, loading/error states, email or employee ID login, password visibility toggle.
+- `/hr/dashboard`: HR-only protected route, API-backed summary cards, activity feed, loading skeletons, retry state, logout.
+- `/hr/employees/add`: schema-mapped employee form, lookup APIs, client validation, success/error notification.
+- BCrypt password verification, JWT expiration, stateless Spring Security, server-side `ROLE_HR` authorization, CORS allow-list.
 
-- **Frontend:** React 18, Vite 6, Tailwind CSS v4, TypeScript, Recharts, Lucide Icons, Axios.
-- **Backend:** Java 17, Spring Boot 3.3.2, Spring Security + JWT Authentication, JPA/Hibernate, Apache POI, Apache PDFBox, Maven.
-- **Database:** PostgreSQL 15, H2 Database (optional/test fallback).
-- **Orchestration:** Docker Compose.
+## Prerequisites
 
----
+- Java 17+
+- Maven 3.9+ (or Maven Wrapper supplied by the team)
+- Node.js 20+
+- npm 10+
+- PostgreSQL 14+
+- The shared PMS PostgreSQL schema supplied by the team
 
-## Local Development Execution
+## Run
 
-### Option 1: Docker Compose (Recommended)
-You can deploy the complete stack (PostgreSQL, Backend API, and Frontend Application) using a single command:
-```bash
-docker-compose up --build
-```
-- **React Portal:** Access at `http://localhost` (or port 80).
-- **Backend API Swagger Documentation:** Access at `http://localhost:8080/swagger-ui.html`.
-- **Database:** PostgreSQL container listening on `localhost:5432`.
+### Frontend
 
-### Option 2: Running Components Individually
-
-1. **Database:**
-   Start PostgreSQL locally and configure credentials matching `backend/src/main/resources/application.properties`.
-
-2. **Backend API:**
-   Navigate into `backend/` and boot the server:
-   ```bash
-   mvn clean spring-boot:run
-   ```
-
-3. **Frontend Application:**
-   Navigate into `frontend/`, install packages, and start the development server:
-   ```bash
-   npm install
-   npm run dev
-   ```
-   Access at `http://localhost:5173`.
-
----
-
-## Verification & Testing Guide
-
-### 1. Backend Unit & Service Tests
-Navigate into `backend/` and run the JUnit/Mockito test suite:
-```bash
-mvn test
-```
-
-### 2. Playwright E2E Tests
-To run E2E browser tests, make sure both frontend and backend are running, then navigate to `e2e/`, install dependencies, and run:
-```bash
-npm install
-npx playwright install chromium
-npx playwright test
-```
-
----
-
-## Seed Accounts Reference
-The database seeder automatically initializes the system with these credentials:
-- **Email:** `employee@aseuro.com`
-- **Password:** `password`
-- **Role:** `ROLE_EMPLOYEE`
-=======
-# PMS-ASEURO - Performance Management System (Login & Role Authentication Module)
-
-A role-based Performance Management System (PMS) authentication and management system built with **Spring Boot 3.3.2 (Java 21/17)**, **React 19 + TypeScript + Vite**, and **PostgreSQL**.
-
----
-
-## 🌟 Key Features
-
-1. **Role-Based Dynamic Authentication (No Role Selector)**:
-   - Login page takes **Email** and **Password** only.
-   - User role (`HR`, `MANAGER`, `EMPLOYEE`) is dynamically fetched from the PostgreSQL `users` table after BCrypt password verification.
-   - Users are seamlessly routed to their respective role-specific dashboard.
-
-2. **HR Setup & Provisioning Workspace (`aishwarya.logaraj@aseuro.in`)**:
-   - Bootstrap HR user can provision new Managers and Employees.
-   - Creates login credentials in PostgreSQL `users` and profiles in `employees`.
-   - Populates Department, Designation, and Reporting Manager dropdowns dynamically.
-   - When newly created employees or managers log in, the system automatically authenticates them and directs them to their workspace.
-
-3. **Enterprise Security & FRD Compliance**:
-   - Password criteria validation (min 8 characters, alphabets, numbers, and special characters).
-   - 5 failed attempts lockout protection (15-minute lockout) with exact FRD error messages.
-   - Stateless JWT authentication with Spring Security method protection.
-
----
-
-## 🔐 Default Seeded Accounts
-
-| Role | Email | Password | Details |
-| :--- | :--- | :--- | :--- |
-| **HR Admin** | `aishwarya.logaraj@aseuro.in` | `Aseuro@123` | Primary HR with Setup Workspace & Provisioning |
-| **Manager** | `manager@aseuro.in` | `Manager@123` | Engineering Manager (Rajesh Sharma) |
-| **Employee** | `employee@aseuro.in` | `Employee@123` | Software Engineer (Kiran Kumar) |
-
----
-
-## 🛠️ Tech Stack & Database Configuration
-
-- **Database**: PostgreSQL 17
-  - **Database Name**: `pms_db`
-  - **User**: `postgres`
-  - **Password**: `root`
-  - **Port**: `5432`
-  - **Schema**: Shared schema with `users`, `employees`, `departments`, `designations`, `teams`, `kpis`, and views.
-- **Backend**: Java 21 / 17, Spring Boot 3.3.2, Spring Security 6, JWT, JPA / Hibernate, BCrypt (Port: `8081`)
-- **Frontend**: React 19, TypeScript, Vite (Port: `5173`)
-
----
-
-## 🚀 How to Run Locally
-
-### 1. Database Setup
-Ensure PostgreSQL is running locally with `pms_db`. The schema is defined in `db/init.sql` or `PMS_shared_schema (3).sql`.
-
-### 2. Run Backend
-```powershell
-cd backend
-mvn clean compile
-mvn spring-boot:run
-```
-*Backend starts on `http://localhost:8081`.*
-
-### 3. Run Frontend
 ```powershell
 cd frontend
+Copy-Item .env.example .env
 npm install
 npm run dev
 ```
-*Frontend runs on `http://localhost:5173`.*
 
----
+The client runs at `http://localhost:5173`.
 
-## 🧪 Verification & Testing Flow
+### Backend
 
-1. Open **`http://localhost:5173`** in your browser.
-2. Click **"HR Setup"** or log in with `aishwarya.logaraj@aseuro.in` / `Aseuro@123`.
-3. In the HR Portal:
-   - Go to **"Add Employees & Managers"**.
-   - Create a new Manager (e.g. `sneha.manager@aseuro.in` / `Password@123`) or Employee.
-4. Log out and log in with the new manager's credentials.
-5. The system automatically fetches their role from PostgreSQL and redirects to the **Manager Portal**!
->>>>>>> 7e242a5ead40c3cafff0fc936fda8630cb8d09d3
+```powershell
+cd backend
+mvn clean verify
+mvn spring-boot:run
+```
+
+Copy the root `.env.example` values into the environment used to start Spring Boot. Never commit real credentials or JWT secrets.
+
+### Database
+
+Create or select the team database (the expected local name is `pms_db`) and execute the shared schema SQL. This module does not create, rename, or alter tables. Point `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD` at that database.
+
+For local testing only, after the shared schema exists, run `backend/src/main/resources/db/dev-seed.sql` with `psql`:
+
+```powershell
+psql -h localhost -U postgres -d pms_db -f backend/src/main/resources/db/dev-seed.sql
+```
+
+The seed creates an active HR account and lookup records. Login credentials are `hr.demo@company.com` / `Password123!`. Do not use these credentials outside local development. The script uses `pgcrypto` to generate a BCrypt hash and does not store a plain-text password.
+
+## Environment
+
+Backend: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET`, `JWT_EXPIRATION` (milliseconds), and `FRONTEND_URL`.
+Frontend: `VITE_API_BASE_URL`.
+
+`JWT_SECRET` must be a long random secret in every non-local environment. JWT claims are limited to subject, role, issue time, and expiry; passwords and hashes are never included.
+
+## API
+
+| Method | Endpoint | Access |
+|---|---|---|
+| POST | `/api/auth/login` | Public |
+| GET | `/api/hr/dashboard/summary` | `ROLE_HR` |
+| GET | `/api/hr/dashboard/activity` | `ROLE_HR` |
+| GET | `/api/hr/departments` | `ROLE_HR` |
+| GET | `/api/hr/teams` | `ROLE_HR` |
+| GET | `/api/hr/designations` | `ROLE_HR` |
+| GET | `/api/hr/managers` | `ROLE_HR` |
+| POST | `/api/hr/employees` | `ROLE_HR` |
+
+Login accepts `{ "identifier": "hr@company.com", "password": "..." }` and returns a Bearer token plus non-sensitive user data. The client attaches that token through an Axios interceptor. Employees and managers receive HTTP 403 for HR APIs; missing or invalid tokens receive HTTP 401.
+
+### Login request
+
+```http
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+```
+
+```json
+{
+	"identifier": "hr.demo@company.com",
+	"password": "Password123!"
+}
+```
+
+Copy `accessToken` from the response for protected requests:
+
+```http
+Authorization: Bearer <accessToken>
+```
+
+### Add employee request
+
+```http
+POST http://localhost:8080/api/hr/employees
+Authorization: Bearer <accessToken>
+Content-Type: application/json
+```
+
+```json
+{
+	"employeeCode": "EMP002",
+	"fullName": "Arun Kumar",
+	"email": "arun.kumar@company.com",
+	"departmentId": 10,
+	"teamId": 20,
+	"designationId": 30,
+	"managerId": 9101,
+	"joiningDate": "2026-08-26",
+	"status": "ACTIVE"
+}
+```
+
+Use the lookup endpoints to obtain IDs instead of assuming these demo IDs in a real database. The backend validates every reference and requires the selected manager to be an active user with role `MANAGER`.
+
+## Shared schema usage
+
+The HR module reads/writes only these existing structures:
+
+- `users`: `id`, `username`, `email`, `password_hash`, `role`, `status`, `last_login_at` and existing audit timestamps.
+- `employees`: `id`, `user_id`, `employee_code`, `full_name`, `email`, `department_id`, `team_id`, `designation_id`, `manager_id`, `joining_date`, `status`, `created_at`, `updated_at`.
+- `departments`: `id`, `name`, `description`, `status`, `created_at`, `updated_at`.
+- `teams`: `id`, `department_id`, `name`, `description`, `status`, `created_at`, `updated_at`.
+- `designations`: `id`, `name`, `description`, `status`, `created_at`, `updated_at`.
+- `pms_assignments`: read-only pending-review count where status is `HR_REVIEW_PENDING`.
+
+Roles are the existing `user_role` values `HR`, `MANAGER`, and `EMPLOYEE`. Status is the existing `record_status` values `ACTIVE` and `INACTIVE`. No Admin role, roles table, duplicate employee ID, or duplicate workflow table is introduced.
+
+## Validation and errors
+
+The client gives field-level feedback and avoids invalid requests. Bean Validation and service checks repeat required-field, email, duplicate employee code, duplicate email, and enum validation on the server. Errors use a consistent JSON shape with timestamp, status, message, and validation errors. Stack traces, passwords, hashes, and tokens are not returned or logged.
+
+## Team integration
+
+Add future modules under their own route, package, and service namespaces. Keep `/api/hr/**`, `com.company.pms.controller`, and the shared entities/repositories as the integration boundary. Replace lookup query details only when the shared schema contract changes by team agreement. Add the team's Maven Wrapper before CI if Maven is not installed on a developer machine.
+
+## Testing and troubleshooting
+
+The frontend production check is `npm run build`. Backend verification is `mvn clean verify`; Maven must be installed or a wrapper must be added. A backend run requires the real shared PostgreSQL schema and at least one active HR user with a BCrypt `password_hash`. No seed credentials are created by this module.
+
+## Git workflow
+
+Use a feature branch, keep HR changes isolated, run frontend build and backend verification before opening a PR, and coordinate any shared entity/schema changes with the other module owners.
