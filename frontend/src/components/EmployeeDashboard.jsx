@@ -40,16 +40,16 @@ export default function EmployeeDashboard() {
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
-    fetch('/api/hr/kpis?designationId=1', { headers: getAuthHeaders() })
+    fetch('/api/employee/pms/current', { headers: getAuthHeaders() })
       .then((res) => {
         if (!res.ok) throw new Error('HTTP ' + res.status);
         return res.json();
       })
       .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          setKpis(data);
+        if (data && Array.isArray(data.kpis) && data.kpis.length > 0) {
+          setKpis(data.kpis);
           const initial = {};
-          data.forEach((k) => { initial[k.id] = k.selfRatingDefault || 5.0; });
+          data.kpis.forEach((k) => { initial[k.kpiId || k.id] = k.selfRating || 5.0; });
           setRatings(initial);
         }
       })

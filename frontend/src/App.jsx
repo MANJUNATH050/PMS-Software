@@ -20,6 +20,22 @@ import ManagerManagement from './components/ManagerManagement';
 import GenerateReports from './components/GenerateReports';
 import PmsLifecycle from './components/PmsLifecycle';
 
+import { DashboardLayout } from './layouts/DashboardLayout';
+import { Dashboard as EmpDashboard } from './pages/Dashboard';
+import { MyKpis } from './pages/MyKpis';
+import { MyReports } from './pages/MyReports';
+import { Profile } from './pages/Profile';
+import { PmsHistoryPage } from './pages/PmsHistoryPage';
+import { HistoryDetail } from './pages/HistoryDetail';
+
+function EmployeeShell() {
+  return (
+    <DashboardLayout>
+      <Outlet />
+    </DashboardLayout>
+  );
+}
+
 import {
   createEmployee,
   getDashboardActivity,
@@ -734,12 +750,15 @@ export default function App() {
 
         {/* Employee Routes (Manjunath) */}
         <Route element={<ProtectedRoute allowedRoles={['EMPLOYEE', 'MANAGER', 'HR']} />}>
-          <Route path="/employee/dashboard" element={<EmployeeDashboard />} />
-          <Route path="/dashboard" element={<EmployeeDashboard />} />
-          <Route path="/kpis" element={<EmployeeDashboard />} />
-          <Route path="/history" element={<EmployeeDashboard />} />
-          <Route path="/reports" element={<EmployeeDashboard />} />
-          <Route path="/profile" element={<EmployeeDashboard />} />
+          <Route element={<EmployeeShell />}>
+            <Route path="/employee/dashboard" element={<EmpDashboard />} />
+            <Route path="/dashboard" element={<EmpDashboard />} />
+            <Route path="/kpis" element={<MyKpis />} />
+            <Route path="/history" element={<PmsHistoryPage />} />
+            <Route path="/history/:id" element={<HistoryDetail />} />
+            <Route path="/reports" element={<MyReports />} />
+            <Route path="/profile" element={<Profile />} />
+          </Route>
         </Route>
 
         <Route path="*" element={<Navigate to="/login" replace />} />
