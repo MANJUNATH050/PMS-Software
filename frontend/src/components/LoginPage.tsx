@@ -26,7 +26,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     const savedLock = localStorage.getItem(lockoutStorageKey);
     return savedLock && new Date(savedLock).getTime() > Date.now() ? savedLock : null;
   });
-  const [, setFailedAttempts] = useState(0);
   const [, setTick] = useState(0);
   const locked = !!lockedUntil && new Date(lockedUntil).getTime() > Date.now();
 
@@ -42,7 +41,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       setTick(Date.now());
       if (new Date(lockedUntil).getTime() <= Date.now()) {
         applyLock(null);
-        setFailedAttempts(0);
       }
     }, 1000);
     return () => window.clearInterval(interval);
@@ -66,18 +64,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       const response = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email.trim(), password }) });
       const data = await response.json().catch(() => null);
       if (!response.ok) {
+        // Only the backend may lock an account. The UI displays its persisted expiry.
         if (data?.lockedUntil) applyLock(data.lockedUntil);
-        if (response.status === 401 || response.status === 403) {
-          setFailedAttempts((current) => {
-            const next = current + 1;
-            // This mirrors the backend lockout in the UI if a stale server omits lockedUntil.
-            if (next >= 5 && !data?.lockedUntil) applyLock(new Date(Date.now() + 5 * 60 * 1000).toISOString());
-            return next;
-          });
-        }
         throw new Error(data?.message || 'Login failed.');
       }
-      setFailedAttempts(0);
       applyLock(null);
       onLoginSuccess({ token: data.token, email: data.email, role: data.role, fullName: data.fullName || data.email.split('@')[0], employeeCode: data.employeeCode || 'EMP' });
     } catch (error) { inform('error', error instanceof Error ? error.message : 'Login failed.'); } finally { setLoading(false); }
