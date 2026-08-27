@@ -5,6 +5,7 @@ import aseuroLogo from '../assets/aseuro-logo.png';
 interface LoginPageProps { onLoginSuccess: (user: AuthUser) => void; }
 type Notice = { type: 'error' | 'success'; message: string };
 const criteria = 'Password should contain minimum 8 characters with alphabets, numbers and special characters.';
+const lockoutStorageKey = 'pms_login_lock_until';
 const validPassword = (value: string) => value.length >= 8 && /[a-zA-Z]/.test(value) && /\d/.test(value) && /[^a-zA-Z\d]/.test(value);
 const timeLeft = (until: string | null) => {
   if (!until) return '';
@@ -21,17 +22,26 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [visible, setVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
-  const [lockedUntil, setLockedUntil] = useState<string | null>(null);
+  const [lockedUntil, setLockedUntil] = useState<string | null>(() => {
+    const savedLock = localStorage.getItem(lockoutStorageKey);
+    return savedLock && new Date(savedLock).getTime() > Date.now() ? savedLock : null;
+  });
   const [, setFailedAttempts] = useState(0);
   const [, setTick] = useState(0);
   const locked = !!lockedUntil && new Date(lockedUntil).getTime() > Date.now();
+
+  const applyLock = (until: string | null) => {
+    setLockedUntil(until);
+    if (until) localStorage.setItem(lockoutStorageKey, until);
+    else localStorage.removeItem(lockoutStorageKey);
+  };
 
   useEffect(() => {
     if (!lockedUntil) return;
     const interval = window.setInterval(() => {
       setTick(Date.now());
       if (new Date(lockedUntil).getTime() <= Date.now()) {
-        setLockedUntil(null);
+        applyLock(null);
         setFailedAttempts(0);
       }
     }, 1000);
@@ -56,18 +66,19 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       const response = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email.trim(), password }) });
       const data = await response.json().catch(() => null);
       if (!response.ok) {
-        if (data?.lockedUntil) setLockedUntil(data.lockedUntil);
+        if (data?.lockedUntil) applyLock(data.lockedUntil);
         if (response.status === 401 || response.status === 403) {
           setFailedAttempts((current) => {
             const next = current + 1;
             // This mirrors the backend lockout in the UI if a stale server omits lockedUntil.
-            if (next >= 5 && !data?.lockedUntil) setLockedUntil(new Date(Date.now() + 5 * 60 * 1000).toISOString());
+            if (next >= 5 && !data?.lockedUntil) applyLock(new Date(Date.now() + 5 * 60 * 1000).toISOString());
             return next;
           });
         }
         throw new Error(data?.message || 'Login failed.');
       }
       setFailedAttempts(0);
+      applyLock(null);
       onLoginSuccess({ token: data.token, email: data.email, role: data.role, fullName: data.fullName || data.email.split('@')[0], employeeCode: data.employeeCode || 'EMP' });
     } catch (error) { inform('error', error instanceof Error ? error.message : 'Login failed.'); } finally { setLoading(false); }
   };
