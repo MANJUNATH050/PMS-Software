@@ -78,10 +78,10 @@ export const HistoryDetail: React.FC = () => {
         <h3 className="text-lg font-bold text-pms-gray mb-2">Error Loading Details</h3>
         <p className="text-sm text-slate-500 mb-6">{error || 'Something went wrong.'}</p>
         <button
-          onClick={() => navigate('/history')}
+          onClick={() => navigate('/reports')}
           className="px-5 py-2.5 bg-pms-green hover:bg-pms-darkGreen text-white font-semibold rounded-lg text-sm shadow transition-colors"
         >
-          Back to History
+          Back to My Reports
         </button>
       </div>
     );
@@ -101,11 +101,11 @@ export const HistoryDetail: React.FC = () => {
       {/* Back button & Page Title */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <button
-          onClick={() => navigate('/history')}
+          onClick={() => navigate('/reports')}
           className="inline-flex items-center space-x-2 text-xs font-semibold text-slate-500 hover:text-pms-gray self-start"
         >
           <ArrowLeft size={16} />
-          <span>Back to appraisal log</span>
+          <span>Back to My Reports</span>
         </button>
         
         <div className="flex items-center space-x-3">

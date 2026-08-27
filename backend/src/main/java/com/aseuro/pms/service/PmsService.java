@@ -340,6 +340,14 @@ public class PmsService {
             if ("August 2026".equals(assignment.getCycleMonth())) {
                 assignment.setStatus(PMSState.PMS_STARTED);
                 pmsAssignmentRepository.save(assignment);
+
+                List<EmployeeKpiRating> ratings = employeeKpiRatingRepository.findByAssignment(assignment);
+                for (EmployeeKpiRating rating : ratings) {
+                    rating.setSelfRating(null);
+                    rating.setComments(null);
+                    rating.setStatus("PENDING");
+                    employeeKpiRatingRepository.save(rating);
+                }
             }
         }
     }

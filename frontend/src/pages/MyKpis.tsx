@@ -78,10 +78,10 @@ export const MyKpis: React.FC = () => {
           There is currently no active appraisal cycle assigned to you. Contact your reporting manager or HR team if this is an error.
         </p>
         <button
-          onClick={() => navigate('/history')}
+          onClick={() => navigate('/reports')}
           className="inline-flex items-center space-x-2 text-sm font-semibold text-pms-green hover:text-pms-darkGreen transition-colors"
         >
-          <span>View past performance history</span>
+          <span>View finalized reports</span>
           <ChevronRight size={16} />
         </button>
       </div>
@@ -209,6 +209,17 @@ export const MyKpis: React.FC = () => {
     }
   };
 
+  const formatDeadline = (deadlineStr?: string) => {
+    if (!deadlineStr) return '10 Sept 2026';
+    try {
+      const d = new Date(deadlineStr);
+      if (isNaN(d.getTime())) return deadlineStr;
+      return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    } catch {
+      return deadlineStr;
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fadeIn">
       
@@ -221,7 +232,7 @@ export const MyKpis: React.FC = () => {
           </div>
           <p className="text-xs text-slate-500 mt-2">
             PMS Appraisal Cycle: <span className="font-semibold text-pms-gray">{assignment.cycleMonth}</span> | 
-            Deadline: <span className="font-semibold text-rose-600">{assignment.submissionDeadline}</span>
+            Deadline: <span className="font-semibold text-rose-600">{formatDeadline(assignment.submissionDeadline)}</span>
           </p>
         </div>
 

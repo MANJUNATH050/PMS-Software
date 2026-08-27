@@ -44,7 +44,7 @@ export const Profile: React.FC = () => {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 animate-fadeIn">
+    <div className="max-w-5xl mx-auto space-y-6 animate-fadeIn">
       <div>
         <h2 className="text-xl font-bold text-pms-gray font-sans">My Professional Profile</h2>
         <p className="text-xs text-slate-400 mt-1">Verify your corporate designations and reporting lines. Changes require HR administration requests.</p>

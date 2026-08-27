@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { pmsApi } from '../api/pmsApi';
 import { reportApi } from '../api/reportApi';
 import { PmsHistory } from '../types';
-import { FileText, Download, FileSpreadsheet, Eye, Calendar, AlertCircle } from 'lucide-react';
+import { FileText, Download, Eye, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export const MyReports: React.FC = () => {
@@ -11,8 +11,8 @@ export const MyReports: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Track downloading states per report & format
-  const [downloading, setDownloading] = useState<Record<string, boolean>>({});
+  // Track downloading states per report
+  const [downloading, setDownloading] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     pmsApi.getHistory()
@@ -27,20 +27,17 @@ export const MyReports: React.FC = () => {
       });
   }, []);
 
-  const triggerDownload = async (assignmentId: number, format: 'pdf' | 'excel', cycleMonth: string) => {
-    const key = `${assignmentId}-${format}`;
-    setDownloading(prev => ({ ...prev, [key]: true }));
-
-    const ext = format === 'pdf' ? 'pdf' : 'xlsx';
-    const filename = `PMS_Report_${cycleMonth.replace(' ', '_')}.${ext}`;
+  const triggerDownload = async (assignmentId: number, cycleMonth: string) => {
+    setDownloading(prev => ({ ...prev, [assignmentId]: true }));
+    const filename = `PMS_Report_${cycleMonth.replace(' ', '_')}.pdf`;
 
     try {
-      await reportApi.downloadReport(assignmentId, format, filename);
+      await reportApi.downloadReport(assignmentId, 'pdf', filename);
     } catch (err) {
       console.error(err);
-      alert('Failed to download file. Please try again.');
+      alert('Failed to download PDF report. Please try again.');
     } finally {
-      setDownloading(prev => ({ ...prev, [key]: false }));
+      setDownloading(prev => ({ ...prev, [assignmentId]: false }));
     }
   };
 
@@ -48,7 +45,11 @@ export const MyReports: React.FC = () => {
     return (
       <div className="space-y-6">
         <div className="h-8 bg-slate-200 rounded w-1/4 skeleton-shimmer"></div>
-        <div className="bg-white p-6 rounded-xl border border-slate-100 h-64 skeleton-shimmer"></div>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="bg-white p-6 rounded-xl border border-slate-100 h-40 skeleton-shimmer"></div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -71,7 +72,7 @@ export const MyReports: React.FC = () => {
       <div>
         <h2 className="text-xl font-bold text-pms-gray">Appraisal Reports Repository</h2>
         <p className="text-xs text-slate-500 mt-1">
-          Download PDF performance certifications or Excel data sheets of finalized appraisal cycles.
+          Access finalized historical performance reports and download official PDF performance certifications.
         </p>
       </div>
 
@@ -82,65 +83,57 @@ export const MyReports: React.FC = () => {
           </div>
           <h3 className="text-sm font-bold text-pms-gray mb-1">No reports available</h3>
           <p className="text-xs text-slate-400 max-w-xs mx-auto">
-            Finalized monthly PMS reports will appear here for download.
+            Finalized monthly PMS appraisal reports will appear here for review and download.
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {reports.map((report) => (
-            <div key={report.id} className="bg-white border border-slate-250/60 rounded-xl p-5 shadow-sm hover:shadow-md transition-all flex items-start justify-between gap-4">
+            <div key={report.id} className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-4">
               
               <div className="space-y-3">
-                <div className="flex items-center space-x-2">
-                  <div className="w-9 h-9 rounded bg-pms-lightGreen flex items-center justify-center text-pms-darkGreen font-semibold">
-                    <FileText size={20} />
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-lg bg-pms-lightGreen flex items-center justify-center text-pms-darkGreen shrink-0 font-semibold shadow-inner">
+                    <FileText size={22} />
                   </div>
                   <div>
-                    <h4 className="font-bold text-sm text-pms-gray">{report.cycleMonth} appraisal</h4>
-                    <p className="text-[10px] text-slate-400 mt-0.5">Finalized on {report.finalizedDate}</p>
+                    <h4 className="font-bold text-base text-pms-gray">{report.cycleMonth} Appraisal</h4>
+                    <p className="text-xs text-slate-400 mt-0.5">Finalized on {report.finalizedDate}</p>
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-2.5">
-                  <span className="text-[11px] font-bold text-slate-600 bg-slate-100 border border-slate-200/60 px-2 py-0.5 rounded">
-                    Score: {report.finalScore.toFixed(2)}
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <span className="text-xs font-bold text-slate-700 bg-slate-100 border border-slate-200/80 px-2.5 py-1 rounded">
+                    Score: {report.finalScore.toFixed(2)} / 5.00
                   </span>
-                  <span className="text-[10px] font-bold text-pms-darkGreen bg-pms-lightGreen/50 px-2.5 py-0.5 rounded-full uppercase">
+                  <span className="text-[11px] font-bold text-pms-darkGreen bg-pms-lightGreen/60 border border-pms-green/20 px-3 py-1 rounded-full uppercase tracking-wider">
                     {report.grade}
                   </span>
                 </div>
               </div>
 
-              {/* Action buttons */}
-              <div className="flex flex-col sm:flex-row gap-2 shrink-0 self-center">
+              {/* Action buttons: Strictly View and Download PDF */}
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end space-x-3">
                 
                 {/* View Details */}
                 <button
-                  onClick={() => navigate(`/history/${report.id}`)}
-                  className="p-2 border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-pms-gray rounded-lg transition-colors flex items-center justify-center"
-                  title="View online report detail"
+                  onClick={() => navigate(`/history/${report.assignmentId || report.id}`)}
+                  className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 hover:text-pms-gray rounded-lg text-xs font-semibold transition-colors flex items-center space-x-1.5 shadow-sm"
+                  title="View online report details"
                 >
-                  <Eye size={16} />
+                  <Eye size={15} />
+                  <span>View</span>
                 </button>
 
                 {/* Download PDF */}
                 <button
-                  onClick={() => triggerDownload(report.id, 'pdf', report.cycleMonth)}
-                  disabled={downloading[`${report.id}-pdf`]}
-                  className="p-2 border border-slate-200 hover:bg-slate-50 text-rose-600 rounded-lg transition-colors flex items-center justify-center"
+                  onClick={() => triggerDownload(report.assignmentId || report.id, report.cycleMonth)}
+                  disabled={downloading[report.assignmentId || report.id]}
+                  className="px-4 py-2 bg-pms-green hover:bg-pms-darkGreen text-white rounded-lg text-xs font-semibold transition-colors flex items-center space-x-1.5 shadow disabled:opacity-50"
                   title="Download PDF report"
                 >
-                  <Download size={16} className={downloading[`${report.id}-pdf`] ? 'animate-bounce' : ''} />
-                </button>
-
-                {/* Download Excel */}
-                <button
-                  onClick={() => triggerDownload(report.id, 'excel', report.cycleMonth)}
-                  disabled={downloading[`${report.id}-excel`]}
-                  className="p-2 border border-slate-200 hover:bg-slate-50 text-emerald-600 rounded-lg transition-colors flex items-center justify-center"
-                  title="Download Excel spreadsheet"
-                >
-                  <FileSpreadsheet size={16} className={downloading[`${report.id}-excel`] ? 'animate-bounce' : ''} />
+                  <Download size={15} className={downloading[report.assignmentId || report.id] ? 'animate-bounce' : ''} />
+                  <span>{downloading[report.assignmentId || report.id] ? 'Downloading...' : 'Download PDF'}</span>
                 </button>
 
               </div>
