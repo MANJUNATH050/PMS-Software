@@ -37,6 +37,12 @@ public class Employee {
     private LocalDate joiningDate;
     private String accountStatus;
 
+    @Column(name = "failed_login_attempts")
+    private Integer failedLoginAttempts;
+
+    @Column(name = "locked_until")
+    private java.time.LocalDateTime lockedUntil;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role;

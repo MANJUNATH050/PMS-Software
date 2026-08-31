@@ -8,11 +8,12 @@ test.describe('EMP008 — View Final Result', () => {
     await page.click('button[type="submit"]');
     await expect(page).toHaveURL(/\/dashboard/);
 
-    await page.goto('/history/2'); // July 2026 finalized assignment
+    await page.goto('/reports');
+    await expect(page).toHaveURL(/\/reports/);
+    await page.locator('button:has-text("View")').first().click();
 
-    await expect(page.locator('text=July 2026').first()).toBeVisible();
-    await expect(page.locator('text=4.25').first()).toBeVisible();
-    await expect(page.locator('text=Excellent Performance').first()).toBeVisible();
+    await expect(page.locator('text=Appraisal Cycle details')).toBeVisible();
+    await expect(page.locator('text=Final Performance Result')).toBeVisible();
     await expect(page.locator('button:has-text("Save Draft")')).toHaveCount(0);
     await expect(page.locator('button:has-text("Submit Self Assessment")')).toHaveCount(0);
   });

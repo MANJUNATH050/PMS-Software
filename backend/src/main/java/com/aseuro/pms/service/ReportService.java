@@ -18,6 +18,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class ReportService {
@@ -26,16 +27,19 @@ public class ReportService {
     private final PmsKpiRepository pmsKpiRepository;
     private final EmployeeKpiRatingRepository employeeKpiRatingRepository;
     private final EmployeeReviewRepository employeeReviewRepository;
+    private final EmployeeRepository employeeRepository;
 
     public ReportService(
             PmsAssignmentRepository pmsAssignmentRepository,
             PmsKpiRepository pmsKpiRepository,
             EmployeeKpiRatingRepository employeeKpiRatingRepository,
-            EmployeeReviewRepository employeeReviewRepository) {
+            EmployeeReviewRepository employeeReviewRepository,
+            EmployeeRepository employeeRepository) {
         this.pmsAssignmentRepository = pmsAssignmentRepository;
         this.pmsKpiRepository = pmsKpiRepository;
         this.employeeKpiRatingRepository = employeeKpiRatingRepository;
         this.employeeReviewRepository = employeeReviewRepository;
+        this.employeeRepository = employeeRepository;
     }
 
     @Transactional(readOnly = true)
@@ -43,13 +47,48 @@ public class ReportService {
         PmsAssignment assignment = pmsAssignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new IllegalArgumentException("Assignment not found"));
 
-        if (!assignment.getEmployee().getId().equals(employeeId)) {
+        Employee reqUser = employeeRepository.findById(employeeId).orElse(null);
+        boolean isHrOrManager = reqUser != null && (reqUser.getRole() == Role.ROLE_HR || reqUser.getRole() == Role.ROLE_MANAGER);
+
+        if (!assignment.getEmployee().getId().equals(employeeId) && !isHrOrManager) {
             throw new AccessDeniedException("Unauthorized access to report");
         }
 
-        List<PmsKpi> kpis = pmsKpiRepository.findByAssignment(assignment);
+        List<PmsKpi> allKpis = pmsKpiRepository.findByAssignment(assignment);
+        List<PmsKpi> roleKpis = allKpis.stream()
+                .filter(k -> !"HR_REVIEW_KPI".equals(k.getKpiCategory()))
+                .collect(Collectors.toList());
+        List<PmsKpi> hrKpis = allKpis.stream()
+                .filter(k -> "HR_REVIEW_KPI".equals(k.getKpiCategory()))
+                .collect(Collectors.toList());
+
         List<EmployeeKpiRating> ratings = employeeKpiRatingRepository.findByAssignment(assignment);
         List<EmployeeReview> reviews = employeeReviewRepository.findByAssignment(assignment);
+
+        double selfSum = 0.0;
+        double mgrSum = 0.0;
+        double hrSum = 0.0;
+        for (PmsKpi kpi : roleKpis) {
+            EmployeeKpiRating r = ratings.stream().filter(rt -> rt.getKpi().getId().equals(kpi.getId())).findFirst().orElse(null);
+            double w = kpi.getWeightage() / 100.0;
+            if (r != null) {
+                if (r.getSelfRating() != null) selfSum += r.getSelfRating() * w;
+                if (r.getManagerRating() != null) mgrSum += r.getManagerRating() * w;
+            }
+        }
+        for (PmsKpi kpi : hrKpis) {
+            EmployeeKpiRating r = ratings.stream().filter(rt -> rt.getKpi().getId().equals(kpi.getId())).findFirst().orElse(null);
+            double w = kpi.getWeightage() / 100.0;
+            if (r != null && r.getHrRating() != null) {
+                hrSum += r.getHrRating() * w;
+            } else if (assignment.getStatus() == PMSState.COMPLETED || assignment.getStatus() == PMSState.FINAL_RESULT_PUBLISHED) {
+                hrSum += 5.0 * w;
+            }
+        }
+
+        double selfScore = Math.round(selfSum * 100.0) / 100.0;
+        double mgrScore = Math.round(mgrSum * 100.0) / 100.0;
+        double hrScore = Math.round(hrSum * 100.0) / 100.0;
 
         try (PDDocument document = new PDDocument()) {
             PDPage page = new PDPage(PDRectangle.A4);
@@ -61,69 +100,93 @@ public class ReportService {
 
                 // Header
                 contentStream.beginText();
-                contentStream.setFont(fontBold, 18);
-                contentStream.newLineAtOffset(50, 750);
+                contentStream.setFont(fontBold, 16);
+                contentStream.newLineAtOffset(50, 780);
                 contentStream.showText("Performance Management System (PMS) - Final Report");
                 contentStream.endText();
 
                 // Employee Info
                 contentStream.beginText();
-                contentStream.setFont(fontBold, 12);
-                contentStream.newLineAtOffset(50, 710);
-                contentStream.showText("Employee Name: " + assignment.getEmployee().getName());
-                contentStream.newLineAtOffset(0, -20);
-                contentStream.showText("Employee ID: EMP-" + assignment.getEmployee().getId());
-                contentStream.newLineAtOffset(0, -20);
-                contentStream.showText("Designation: " + assignment.getEmployee().getDesignation());
-                contentStream.newLineAtOffset(0, -20);
-                contentStream.showText("Department: " + assignment.getEmployee().getDepartment());
-                contentStream.newLineAtOffset(0, -20);
-                contentStream.showText("PMS Cycle: " + assignment.getCycleMonth());
-                contentStream.newLineAtOffset(0, -20);
-                contentStream.showText("Overall Score: " + (assignment.getOverallScore() != null ? assignment.getOverallScore() : "N/A"));
-                contentStream.newLineAtOffset(0, -20);
-                contentStream.showText("Performance Grade: " + (assignment.getPerformanceGrade() != null ? assignment.getPerformanceGrade() : "N/A"));
+                contentStream.setFont(fontBold, 10);
+                contentStream.newLineAtOffset(50, 750);
+                contentStream.showText("Employee Name: " + assignment.getEmployee().getName() + " (EMP-" + assignment.getEmployee().getId() + ")");
+                contentStream.newLineAtOffset(0, -15);
+                contentStream.showText("Designation: " + assignment.getEmployee().getDesignation() + " | Department: " + assignment.getEmployee().getDepartment());
+                contentStream.newLineAtOffset(0, -15);
+                contentStream.showText("PMS Cycle: " + assignment.getCycleMonth() + " | Status: " + assignment.getStatus());
+                contentStream.newLineAtOffset(0, -15);
+                contentStream.showText("Self Assessment Score: " + selfScore + " / 5.00 | Manager Score: " + mgrScore + " / 5.00 | HR Score: " + hrScore + " / 5.00");
+                contentStream.newLineAtOffset(0, -15);
+                contentStream.showText("Final Result: " + (assignment.getOverallScore() != null ? assignment.getOverallScore() : "N/A") + " / 5.00 (" + (assignment.getPerformanceGrade() != null ? assignment.getPerformanceGrade() : "Pending") + ")");
                 contentStream.endText();
+
+                int yPosition = 660;
 
                 // KPI List Section
                 contentStream.beginText();
-                contentStream.setFont(fontBold, 14);
-                contentStream.newLineAtOffset(50, 530);
-                contentStream.showText("KPI Performance Breakdown:");
+                contentStream.setFont(fontBold, 11);
+                contentStream.newLineAtOffset(50, yPosition);
+                contentStream.showText("Role / Manager KPI Breakdown:");
                 contentStream.endText();
+                yPosition -= 20;
 
-                int yPosition = 500;
-                for (PmsKpi kpi : kpis) {
+                for (PmsKpi kpi : roleKpis) {
                     EmployeeKpiRating rating = ratings.stream()
                             .filter(r -> r.getKpi().getId().equals(kpi.getId()))
                             .findFirst().orElse(null);
 
                     contentStream.beginText();
-                    contentStream.setFont(fontBold, 11);
+                    contentStream.setFont(fontBold, 9);
                     contentStream.newLineAtOffset(50, yPosition);
-                    contentStream.showText("• " + kpi.getKpiName() + " (Weightage: " + kpi.getWeightage() + "%)");
-                    contentStream.setFont(fontRegular, 10);
-                    contentStream.newLineAtOffset(0, -15);
-                    contentStream.showText("  Self Rating: " + (rating != null && rating.getSelfRating() != null ? rating.getSelfRating() : "N/A") +
-                            " | Manager Rating: " + (rating != null && rating.getManagerRating() != null ? rating.getManagerRating() : "N/A") +
-                            " | HR Rating: " + (rating != null && rating.getHrRating() != null ? rating.getHrRating() : "N/A"));
+                    contentStream.showText("• " + kpi.getKpiName() + " (Weight: " + kpi.getWeightage() + "%)");
+                    contentStream.setFont(fontRegular, 8);
+                    contentStream.newLineAtOffset(0, -12);
+                    contentStream.showText("  Self: " + (rating != null && rating.getSelfRating() != null ? rating.getSelfRating() : "N/A") +
+                            " | Manager: " + (rating != null && rating.getManagerRating() != null ? rating.getManagerRating() : "N/A") +
+                            " | HR: " + (rating != null && rating.getHrRating() != null ? rating.getHrRating() : "N/A"));
                     contentStream.endText();
 
-                    yPosition -= 35;
-                    if (yPosition < 100) {
-                        break; // Stop to prevent drawing off-page in simple PDF generation
+                    yPosition -= 28;
+                    if (yPosition < 160) break;
+                }
+
+                // HR Review KPI Evaluation Section
+                if (!hrKpis.isEmpty() && yPosition > 140) {
+                    yPosition -= 10;
+                    contentStream.beginText();
+                    contentStream.setFont(fontBold, 11);
+                    contentStream.newLineAtOffset(50, yPosition);
+                    contentStream.showText("HR Review KPI Evaluation (Corporate Staff):");
+                    contentStream.endText();
+                    yPosition -= 18;
+
+                    for (PmsKpi kpi : hrKpis) {
+                        EmployeeKpiRating rating = ratings.stream()
+                                .filter(r -> r.getKpi().getId().equals(kpi.getId()))
+                                .findFirst().orElse(null);
+                        Double hrRat = rating != null && rating.getHrRating() != null ? rating.getHrRating() : 5.0;
+
+                        contentStream.beginText();
+                        contentStream.setFont(fontBold, 9);
+                        contentStream.newLineAtOffset(50, yPosition);
+                        contentStream.showText("• " + kpi.getKpiName() + " (Weight: " + kpi.getWeightage() + "%) - HR Rating: " + hrRat + " / 5.00 [FINALIZED]");
+                        contentStream.endText();
+
+                        yPosition -= 18;
+                        if (yPosition < 100) break;
                     }
                 }
 
                 // Overall Review
-                if (yPosition > 120 && !reviews.isEmpty()) {
+                if (yPosition > 80 && !reviews.isEmpty()) {
+                    yPosition -= 10;
                     contentStream.beginText();
-                    contentStream.setFont(fontBold, 12);
-                    contentStream.newLineAtOffset(50, yPosition - 10);
+                    contentStream.setFont(fontBold, 10);
+                    contentStream.newLineAtOffset(50, yPosition);
                     contentStream.showText("Reviews & Remarks:");
-                    contentStream.setFont(fontRegular, 10);
+                    contentStream.setFont(fontRegular, 8);
                     for (EmployeeReview rev : reviews) {
-                        contentStream.newLineAtOffset(0, -20);
+                        contentStream.newLineAtOffset(0, -14);
                         contentStream.showText(rev.getReviewer().getRole().name().replace("ROLE_", "") + ": " + rev.getComments());
                     }
                     contentStream.endText();
@@ -141,20 +204,33 @@ public class ReportService {
         PmsAssignment assignment = pmsAssignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new IllegalArgumentException("Assignment not found"));
 
-        if (!assignment.getEmployee().getId().equals(employeeId)) {
+        Employee reqUser = employeeRepository.findById(employeeId).orElse(null);
+        boolean isHrOrManager = reqUser != null && (reqUser.getRole() == Role.ROLE_HR || reqUser.getRole() == Role.ROLE_MANAGER);
+
+        if (!assignment.getEmployee().getId().equals(employeeId) && !isHrOrManager) {
             throw new AccessDeniedException("Unauthorized access to report");
         }
 
-        List<PmsKpi> kpis = kpis = pmsKpiRepository.findByAssignment(assignment);
+        List<PmsKpi> allKpis = pmsKpiRepository.findByAssignment(assignment);
         List<EmployeeKpiRating> ratings = employeeKpiRatingRepository.findByAssignment(assignment);
+
+        double mgrSum = 0.0;
+        double hrSum = 0.0;
+        for (PmsKpi kpi : allKpis) {
+            EmployeeKpiRating r = ratings.stream().filter(rt -> rt.getKpi().getId().equals(kpi.getId())).findFirst().orElse(null);
+            double w = kpi.getWeightage() / 100.0;
+            if (r != null) {
+                if (r.getManagerRating() != null) mgrSum += r.getManagerRating() * w;
+                if (r.getHrRating() != null) hrSum += r.getHrRating() * w;
+            }
+        }
 
         try (Workbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("PMS Report");
 
-            // Header Font & Style
             Font headerFont = workbook.createFont();
             headerFont.setBold(true);
-            headerFont.setFontHeightInPoints((short) 12);
+            headerFont.setFontHeightInPoints((short) 11);
             headerFont.setColor(IndexedColors.WHITE.getIndex());
 
             CellStyle headerCellStyle = workbook.createCellStyle();
@@ -177,18 +253,26 @@ public class ReportService {
             rInfo3.createCell(1).setCellValue(assignment.getCycleMonth());
 
             Row rInfo4 = sheet.createRow(rowNum++);
-            rInfo4.createCell(0).setCellValue("Overall Score:");
-            rInfo4.createCell(1).setCellValue(assignment.getOverallScore() != null ? assignment.getOverallScore() : 0.0);
+            rInfo4.createCell(0).setCellValue("Manager Weighted Score:");
+            rInfo4.createCell(1).setCellValue(Math.round(mgrSum * 100.0) / 100.0);
 
             Row rInfo5 = sheet.createRow(rowNum++);
-            rInfo5.createCell(0).setCellValue("Performance Grade:");
-            rInfo5.createCell(1).setCellValue(assignment.getPerformanceGrade() != null ? assignment.getPerformanceGrade() : "N/A");
+            rInfo5.createCell(0).setCellValue("HR Weighted Score:");
+            rInfo5.createCell(1).setCellValue(Math.round(hrSum * 100.0) / 100.0);
+
+            Row rInfo6 = sheet.createRow(rowNum++);
+            rInfo6.createCell(0).setCellValue("Final Result:");
+            rInfo6.createCell(1).setCellValue(assignment.getOverallScore() != null ? assignment.getOverallScore() : 0.0);
+
+            Row rInfo7 = sheet.createRow(rowNum++);
+            rInfo7.createCell(0).setCellValue("Performance Grade:");
+            rInfo7.createCell(1).setCellValue(assignment.getPerformanceGrade() != null ? assignment.getPerformanceGrade() : "N/A");
 
             rowNum++; // Blank row
 
             // KPI Header row
             Row headerRow = sheet.createRow(rowNum++);
-            String[] columns = {"KPI Name", "Measurement Criteria", "Weightage", "Self Rating", "Manager Rating", "HR Rating", "Comments"};
+            String[] columns = {"Category", "KPI Name", "Measurement Criteria", "Weightage", "Self Rating", "Manager Rating", "HR Rating", "Comments"};
             for (int i = 0; i < columns.length; i++) {
                 Cell cell = headerRow.createCell(i);
                 cell.setCellValue(columns[i]);
@@ -196,22 +280,22 @@ public class ReportService {
             }
 
             // Write KPI details
-            for (PmsKpi kpi : kpis) {
+            for (PmsKpi kpi : allKpis) {
                 EmployeeKpiRating rating = ratings.stream()
                         .filter(r -> r.getKpi().getId().equals(kpi.getId()))
                         .findFirst().orElse(null);
 
                 Row row = sheet.createRow(rowNum++);
-                row.createCell(0).setCellValue(kpi.getKpiName());
-                row.createCell(1).setCellValue(kpi.getDescription());
-                row.createCell(2).setCellValue(kpi.getWeightage() + "%");
-                row.createCell(3).setCellValue(rating != null && rating.getSelfRating() != null ? rating.getSelfRating() : 0.0);
-                row.createCell(4).setCellValue(rating != null && rating.getManagerRating() != null ? rating.getManagerRating() : 0.0);
-                row.createCell(5).setCellValue(rating != null && rating.getHrRating() != null ? rating.getHrRating() : 0.0);
-                row.createCell(6).setCellValue(rating != null && rating.getComments() != null ? rating.getComments() : "");
+                row.createCell(0).setCellValue("HR_REVIEW_KPI".equals(kpi.getKpiCategory()) ? "HR Review KPI" : "Role KPI");
+                row.createCell(1).setCellValue(kpi.getKpiName());
+                row.createCell(2).setCellValue(kpi.getDescription());
+                row.createCell(3).setCellValue(kpi.getWeightage() + "%");
+                row.createCell(4).setCellValue(rating != null && rating.getSelfRating() != null ? rating.getSelfRating() : 0.0);
+                row.createCell(5).setCellValue(rating != null && rating.getManagerRating() != null ? rating.getManagerRating() : 0.0);
+                row.createCell(6).setCellValue(rating != null && rating.getHrRating() != null ? rating.getHrRating() : ("HR_REVIEW_KPI".equals(kpi.getKpiCategory()) ? 5.0 : 0.0));
+                row.createCell(7).setCellValue(rating != null && rating.getComments() != null ? rating.getComments() : "");
             }
 
-            // Auto-size columns
             for (int i = 0; i < columns.length; i++) {
                 sheet.autoSizeColumn(i);
             }

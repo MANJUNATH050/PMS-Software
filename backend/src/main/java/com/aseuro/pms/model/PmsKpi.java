@@ -28,4 +28,11 @@ public class PmsKpi {
 
     @Column(nullable = false)
     private Double weightage; // e.g., 20.0 (for 20%)
+
+    @Column(name = "applicable_for")
+    private String applicableFor;
+
+    @Column(name = "kpi_category")
+    @Builder.Default
+    private String kpiCategory = "ROLE_KPI"; // "ROLE_KPI" or "HR_REVIEW_KPI"
 }

@@ -1,412 +1,950 @@
 package com.aseuro.pms.config;
 
-<<<<<<< HEAD
 import com.aseuro.pms.model.*;
 import com.aseuro.pms.repository.*;
 import org.springframework.boot.CommandLineRunner;
-=======
-import com.aseuro.pms.entity.Department;
-import com.aseuro.pms.entity.Designation;
-import com.aseuro.pms.entity.Employee;
-import com.aseuro.pms.entity.RecordStatus;
-import com.aseuro.pms.entity.User;
-import com.aseuro.pms.entity.UserRole;
-import com.aseuro.pms.repository.DepartmentRepository;
-import com.aseuro.pms.repository.DesignationRepository;
-import com.aseuro.pms.repository.EmployeeRepository;
-import com.aseuro.pms.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.ApplicationArguments;
-import org.springframework.boot.ApplicationRunner;
->>>>>>> 7e242a5ead40c3cafff0fc936fda8630cb8d09d3
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @Component
-<<<<<<< HEAD
 public class DatabaseSeeder implements CommandLineRunner {
 
-    private final EmployeeRepository employeeRepository;
-    private final PmsAssignmentRepository pmsAssignmentRepository;
-    private final PmsKpiRepository pmsKpiRepository;
-    private final EmployeeKpiRatingRepository employeeKpiRatingRepository;
-    private final EmployeeReviewRepository employeeReviewRepository;
-    private final FinalPmsResultRepository finalPmsResultRepository;
-    private final PmsHistoryRepository pmsHistoryRepository;
-    private final PasswordEncoder passwordEncoder;
+        private final EmployeeRepository employeeRepository;
+        private final PmsAssignmentRepository pmsAssignmentRepository;
+        private final PmsKpiRepository pmsKpiRepository;
+        private final EmployeeKpiRatingRepository employeeKpiRatingRepository;
+        private final EmployeeReviewRepository employeeReviewRepository;
+        private final FinalPmsResultRepository finalPmsResultRepository;
+        private final PmsHistoryRepository pmsHistoryRepository;
+        private final KpiMasterRepository kpiMasterRepository;
+        private final PasswordEncoder passwordEncoder;
 
-    public DatabaseSeeder(
-            EmployeeRepository employeeRepository,
-            PmsAssignmentRepository pmsAssignmentRepository,
-            PmsKpiRepository pmsKpiRepository,
-            EmployeeKpiRatingRepository employeeKpiRatingRepository,
-            EmployeeReviewRepository employeeReviewRepository,
-            FinalPmsResultRepository finalPmsResultRepository,
-            PmsHistoryRepository pmsHistoryRepository,
-            PasswordEncoder passwordEncoder) {
-        this.employeeRepository = employeeRepository;
-        this.pmsAssignmentRepository = pmsAssignmentRepository;
-        this.pmsKpiRepository = pmsKpiRepository;
-        this.employeeKpiRatingRepository = employeeKpiRatingRepository;
-        this.employeeReviewRepository = employeeReviewRepository;
-        this.finalPmsResultRepository = finalPmsResultRepository;
-        this.pmsHistoryRepository = pmsHistoryRepository;
-        this.passwordEncoder = passwordEncoder;
-    }
-
-    @Override
-    @Transactional
-    public void run(String... args) throws Exception {
-        if (employeeRepository.count() > 0) {
-            return; // Database already seeded
+        public DatabaseSeeder(
+                        EmployeeRepository employeeRepository,
+                        PmsAssignmentRepository pmsAssignmentRepository,
+                        PmsKpiRepository pmsKpiRepository,
+                        EmployeeKpiRatingRepository employeeKpiRatingRepository,
+                        EmployeeReviewRepository employeeReviewRepository,
+                        FinalPmsResultRepository finalPmsResultRepository,
+                        PmsHistoryRepository pmsHistoryRepository,
+                        KpiMasterRepository kpiMasterRepository,
+                        PasswordEncoder passwordEncoder) {
+                this.employeeRepository = employeeRepository;
+                this.pmsAssignmentRepository = pmsAssignmentRepository;
+                this.pmsKpiRepository = pmsKpiRepository;
+                this.employeeKpiRatingRepository = employeeKpiRatingRepository;
+                this.employeeReviewRepository = employeeReviewRepository;
+                this.finalPmsResultRepository = finalPmsResultRepository;
+                this.pmsHistoryRepository = pmsHistoryRepository;
+                this.kpiMasterRepository = kpiMasterRepository;
+                this.passwordEncoder = passwordEncoder;
         }
 
-        // 1. Create Users
-        Employee hr = Employee.builder()
-                .email("hr@aseuro.com")
-                .password(passwordEncoder.encode("password"))
-                .name("Bob HR")
-                .department("Human Resources")
-                .designation("HR Director")
-                .joiningDate(LocalDate.of(2022, 1, 15))
-                .accountStatus("ACTIVE")
-                .role(Role.ROLE_HR)
-                .build();
-        employeeRepository.save(hr);
+        @Override
+        @Transactional
+        public void run(String... args) throws Exception {
+                seedKpiMasterData();
 
-        Employee manager = Employee.builder()
-                .email("manager@aseuro.com")
-                .password(passwordEncoder.encode("password"))
-                .name("Alice Smith")
-                .department("Engineering")
-                .team("Core Platform")
-                .designation("Engineering Manager")
-                .joiningDate(LocalDate.of(2021, 6, 1))
-                .accountStatus("ACTIVE")
-                .role(Role.ROLE_MANAGER)
-                .build();
-        employeeRepository.save(manager);
+                if (employeeRepository.count() > 0) {
+                        // Ensure HR user exists with correct password Hr@12345 and active assignment
+                        employeeRepository.findByEmail("hr@aseuro.com").ifPresent(hr -> {
+                                hr.setPassword(passwordEncoder.encode("Hr@12345"));
+                                hr.setRole(Role.ROLE_HR);
+                                if (hr.getDesignation() == null || hr.getDesignation().trim().isEmpty()) {
+                                        hr.setDesignation("HR Director");
+                                }
+                                employeeRepository.findByEmail("manager@aseuro.com").ifPresent(hr::setManager);
+                                employeeRepository.save(hr);
 
-        Employee employee = Employee.builder()
-                .email("employee@aseuro.com")
-                .password(passwordEncoder.encode("password"))
-                .name("John Doe")
-                .department("Engineering")
-                .team("Core Platform")
-                .designation("Senior Software Engineer")
-                .manager(manager)
-                .joiningDate(LocalDate.of(2023, 3, 10))
-                .accountStatus("ACTIVE")
-                .role(Role.ROLE_EMPLOYEE)
-                .build();
-        employeeRepository.save(employee);
+                                List<PmsAssignment> hrAssignments = pmsAssignmentRepository.findByEmployee(hr);
+                                boolean hasAug2026 = hrAssignments.stream()
+                                                .anyMatch(a -> "August 2026".equals(a.getCycleMonth()));
+                                if (!hasAug2026) {
+                                        seedHrAugustAssignment(hr);
+                                } else {
+                                        for (PmsAssignment a : hrAssignments) {
+                                                if ("August 2026".equals(a.getCycleMonth())) {
+                                                        List<PmsKpi> kpis = pmsKpiRepository.findByAssignment(a);
+                                                        if (kpis.isEmpty()) {
+                                                                seedHrAugustKpisOnly(a);
+                                                        }
+                                                }
+                                        }
+                                }
+                        });
 
-        // 2. Seed active PMS Cycle (August 2026)
-        PmsAssignment currentAssignment = PmsAssignment.builder()
-                .employee(employee)
-                .cycleMonth("August 2026")
-                .status(PMSState.PMS_STARTED)
-                .startDate(LocalDate.of(2026, 8, 1))
-                .endDate(LocalDate.of(2026, 8, 31))
-                .submissionDeadline(LocalDate.of(2026, 9, 10))
-                .build();
-        pmsAssignmentRepository.save(currentAssignment);
+                        // Ensure Manager user has active August 2026 assignment
+                        employeeRepository.findByEmail("manager@aseuro.com").ifPresent(mgr -> {
+                                List<PmsAssignment> mgrAssignments = pmsAssignmentRepository.findByEmployee(mgr);
+                                boolean hasAug2026 = mgrAssignments.stream()
+                                                .anyMatch(a -> "August 2026".equals(a.getCycleMonth()));
+                                if (!hasAug2026) {
+                                        seedManagerAugustAssignment(mgr);
+                                }
+                        });
 
-        PmsKpi kpi1 = PmsKpi.builder()
-                .assignment(currentAssignment)
-                .kpiName("Code Quality")
-                .description("Maintain code quality, test coverage, and reduce production defects.")
-                .weightage(20.0)
-                .build();
-        PmsKpi kpi2 = PmsKpi.builder()
-                .assignment(currentAssignment)
-                .kpiName("Delivery & Speed")
-                .description("Deliver sprint tasks within estimation timelines with minimal spillover.")
-                .weightage(40.0)
-                .build();
-        PmsKpi kpi3 = PmsKpi.builder()
-                .assignment(currentAssignment)
-                .kpiName("Communication & Collaboration")
-                .description("Collaborate effectively with cross-functional teams and maintain clear updates.")
-                .weightage(20.0)
-                .build();
-        PmsKpi kpi4 = PmsKpi.builder()
-                .assignment(currentAssignment)
-                .kpiName("Innovation & Optimization")
-                .description("Propose and implement performance optimizations or developer workflow tooling.")
-                .weightage(20.0)
-                .build();
-        pmsKpiRepository.saveAll(List.of(kpi1, kpi2, kpi3, kpi4));
+                        // Ensure August 2026 assignment is in fresh draft state for self-assessment testing
+                        employeeRepository.findByEmail("employee@aseuro.com").ifPresent(emp -> {
+                                Employee mgr = employeeRepository.findByEmail("manager@aseuro.com").orElse(null);
+                                Employee hrUser = employeeRepository.findByEmail("hr@aseuro.com").orElse(null);
+                                syncEmployeeHistoricalAssignments(emp, mgr, hrUser);
 
-        // Create empty ratings template
-        EmployeeKpiRating r1 = EmployeeKpiRating.builder().assignment(currentAssignment).kpi(kpi1).status("PENDING").build();
-        EmployeeKpiRating r2 = EmployeeKpiRating.builder().assignment(currentAssignment).kpi(kpi2).status("PENDING").build();
-        EmployeeKpiRating r3 = EmployeeKpiRating.builder().assignment(currentAssignment).kpi(kpi3).status("PENDING").build();
-        EmployeeKpiRating r4 = EmployeeKpiRating.builder().assignment(currentAssignment).kpi(kpi4).status("PENDING").build();
-        employeeKpiRatingRepository.saveAll(List.of(r1, r2, r3, r4));
+                                List<PmsAssignment> assignments = pmsAssignmentRepository.findByEmployee(emp);
+                                for (PmsAssignment a : assignments) {
+                                        if ("August 2026".equals(a.getCycleMonth())) {
+                                                a.setStatus(PMSState.SELF_ASSESSMENT_DRAFT);
+                                                a.setOverallScore(null);
+                                                a.setPerformanceGrade(null);
+                                                a.setFinalizedDate(null);
+                                                pmsAssignmentRepository.save(a);
 
+                                                List<EmployeeKpiRating> ratings = employeeKpiRatingRepository
+                                                                .findByAssignment(a);
+                                                if (!ratings.isEmpty()) {
+                                                        employeeKpiRatingRepository.deleteAll(ratings);
+                                                }
+                                        }
+                                }
+                        });
+                        return;
+                }
 
-        // 3. Seed Finalized History Records (July 2026)
-        PmsAssignment julyAssignment = PmsAssignment.builder()
-                .employee(employee)
-                .cycleMonth("July 2026")
-                .status(PMSState.COMPLETED)
-                .startDate(LocalDate.of(2026, 7, 1))
-                .endDate(LocalDate.of(2026, 7, 31))
-                .finalizedDate(LocalDate.of(2026, 7, 28))
-                .overallScore(4.25)
-                .performanceGrade("Excellent Performance")
-                .build();
-        pmsAssignmentRepository.save(julyAssignment);
+                // 1. Create Users
+                Employee manager = Employee.builder()
+                                .email("manager@aseuro.com")
+                                .password(passwordEncoder.encode("password"))
+                                .name("Alice Smith")
+                                .department("Engineering")
+                                .team("Core Platform")
+                                .designation("Engineering Manager")
+                                .joiningDate(LocalDate.of(2021, 6, 1))
+                                .accountStatus("ACTIVE")
+                                .role(Role.ROLE_MANAGER)
+                                .build();
+                employeeRepository.save(manager);
 
-        PmsKpi jkpi1 = PmsKpi.builder().assignment(julyAssignment).kpiName("Code Quality").description("Maintain code quality.").weightage(25.0).build();
-        PmsKpi jkpi2 = PmsKpi.builder().assignment(julyAssignment).kpiName("Delivery & Speed").description("Sprint goals delivery.").weightage(50.0).build();
-        PmsKpi jkpi3 = PmsKpi.builder().assignment(julyAssignment).kpiName("Teamwork").description("Effective team communication.").weightage(25.0).build();
-        pmsKpiRepository.saveAll(List.of(jkpi1, jkpi2, jkpi3));
+                Employee hr = Employee.builder()
+                                .email("hr@aseuro.com")
+                                .password(passwordEncoder.encode("Hr@12345"))
+                                .name("Bob HR")
+                                .department("Human Resources")
+                                .designation("HR Director")
+                                .manager(manager)
+                                .joiningDate(LocalDate.of(2022, 1, 15))
+                                .accountStatus("ACTIVE")
+                                .role(Role.ROLE_HR)
+                                .build();
+                employeeRepository.save(hr);
 
-        EmployeeKpiRating jr1 = EmployeeKpiRating.builder()
-                .assignment(julyAssignment).kpi(jkpi1).selfRating(4.0).managerRating(4.5).hrRating(4.5)
-                .comments("Achieved 85% test coverage in core module").status("COMPLETED").build();
-        EmployeeKpiRating jr2 = EmployeeKpiRating.builder()
-                .assignment(julyAssignment).kpi(jkpi2).selfRating(4.0).managerRating(4.0).hrRating(4.0)
-                .comments("Completed all core features in July release").status("COMPLETED").build();
-        EmployeeKpiRating jr3 = EmployeeKpiRating.builder()
-                .assignment(julyAssignment).kpi(jkpi3).selfRating(4.5).managerRating(4.5).hrRating(4.5)
-                .comments("Conducted onboarding sessions for new hires").status("COMPLETED").build();
-        employeeKpiRatingRepository.saveAll(List.of(jr1, jr2, jr3));
+                Employee employee = Employee.builder()
+                                .email("employee@aseuro.com")
+                                .password(passwordEncoder.encode("password"))
+                                .name("John Doe")
+                                .department("Engineering")
+                                .team("Core Platform")
+                                .designation("Software Engineer")
+                                .manager(manager)
+                                .joiningDate(LocalDate.of(2023, 3, 10))
+                                .accountStatus("ACTIVE")
+                                .role(Role.ROLE_EMPLOYEE)
+                                .build();
+                employeeRepository.save(employee);
 
-        EmployeeReview jReview = EmployeeReview.builder()
-                .assignment(julyAssignment)
-                .reviewer(manager)
-                .comments("John performed exceptionally well this month. His contribution to the testing suite was major.")
-                .reviewDate(LocalDate.of(2026, 7, 27))
-                .build();
-        employeeReviewRepository.save(jReview);
+                // 2. Create Active PMS Assignment for August 2026 (Fresh Self-Assessment Draft)
+                PmsAssignment currentAssignment = PmsAssignment.builder()
+                                .employee(employee)
+                                .cycleMonth("August 2026")
+                                .status(PMSState.SELF_ASSESSMENT_DRAFT)
+                                .startDate(LocalDate.of(2026, 8, 1))
+                                .endDate(LocalDate.of(2026, 8, 31))
+                                .submissionDeadline(LocalDate.of(2026, 8, 25))
+                                .build();
+                pmsAssignmentRepository.save(currentAssignment);
 
-        FinalPmsResult jResult = FinalPmsResult.builder()
-                .assignment(julyAssignment)
-                .finalScore(4.25)
-                .grade("Excellent Performance")
-                .finalizedBy(hr)
-                .finalizedDate(LocalDate.of(2026, 7, 28))
-                .build();
-        finalPmsResultRepository.save(jResult);
+                PmsKpi kpi1 = PmsKpi.builder()
+                                .assignment(currentAssignment)
+                                .kpiName("Code Quality")
+                                .description("Maintain code quality, test coverage >= 85%, and reduce production defect escapes.")
+                                .weightage(20.0)
+                                .build();
 
-        PmsHistory julyHistory = PmsHistory.builder()
-                .employee(employee)
-                .cycleMonth("July 2026")
-                .finalScore(4.25)
-                .grade("Excellent Performance")
-                .finalizedDate(LocalDate.of(2026, 7, 28))
-                .assignmentId(julyAssignment.getId())
-                .build();
-        pmsHistoryRepository.save(julyHistory);
+                PmsKpi kpi2 = PmsKpi.builder()
+                                .assignment(currentAssignment)
+                                .kpiName("Delivery & Speed")
+                                .description("Deliver sprint backlog tasks within estimation timelines with minimal spillover.")
+                                .weightage(40.0)
+                                .build();
 
-        // 4. Seed history (June 2026)
-        PmsAssignment juneAssignment = PmsAssignment.builder()
-                .employee(employee)
-                .cycleMonth("June 2026")
-                .status(PMSState.COMPLETED)
-                .startDate(LocalDate.of(2026, 6, 1))
-                .endDate(LocalDate.of(2026, 6, 30))
-                .finalizedDate(LocalDate.of(2026, 6, 28))
-                .overallScore(3.90)
-                .performanceGrade("Good Performance")
-                .build();
-        pmsAssignmentRepository.save(juneAssignment);
+                PmsKpi kpi3 = PmsKpi.builder()
+                                .assignment(currentAssignment)
+                                .kpiName("Communication & Collaboration")
+                                .description("Collaborate effectively with cross-functional teams, participate in reviews and standups.")
+                                .weightage(20.0)
+                                .build();
 
-        PmsHistory juneHistory = PmsHistory.builder()
-                .employee(employee)
-                .cycleMonth("June 2026")
-                .finalScore(3.90)
-                .grade("Good Performance")
-                .finalizedDate(LocalDate.of(2026, 6, 28))
-                .assignmentId(juneAssignment.getId())
-                .build();
-        pmsHistoryRepository.save(juneHistory);
+                PmsKpi kpi4 = PmsKpi.builder()
+                                .assignment(currentAssignment)
+                                .kpiName("Innovation & Optimization")
+                                .description("Propose and implement developer workflow tooling, CI/CD optimizations, and clean architecture.")
+                                .weightage(20.0)
+                                .build();
 
-        // 5. Seed history (May 2026)
-        PmsAssignment mayAssignment = PmsAssignment.builder()
-                .employee(employee)
-                .cycleMonth("May 2026")
-                .status(PMSState.COMPLETED)
-                .startDate(LocalDate.of(2026, 5, 1))
-                .endDate(LocalDate.of(2026, 5, 31))
-                .finalizedDate(LocalDate.of(2026, 5, 28))
-                .overallScore(4.10)
-                .performanceGrade("Excellent Performance")
-                .build();
-        pmsAssignmentRepository.save(mayAssignment);
+                pmsKpiRepository.saveAll(List.of(kpi1, kpi2, kpi3, kpi4));
 
-        PmsHistory mayHistory = PmsHistory.builder()
-                .employee(employee)
-                .cycleMonth("May 2026")
-                .finalScore(4.10)
-                .grade("Excellent Performance")
-                .finalizedDate(LocalDate.of(2026, 5, 28))
-                .assignmentId(mayAssignment.getId())
-                .build();
-        pmsHistoryRepository.save(mayHistory);
-=======
-@RequiredArgsConstructor
-@Slf4j
-public class DatabaseSeeder implements ApplicationRunner {
+                // Create Active PMS Assignment for HR and Manager users for August 2026
+                seedHrAugustAssignment(hr);
+                seedManagerAugustAssignment(manager);
 
-    private final UserRepository userRepository;
-    private final EmployeeRepository employeeRepository;
-    private final DepartmentRepository departmentRepository;
-    private final DesignationRepository designationRepository;
-    private final PasswordEncoder passwordEncoder;
+                // 3. Seed history (July 2026)
+                PmsAssignment julyAssignment = PmsAssignment.builder()
+                                .employee(employee)
+                                .cycleMonth("July 2026")
+                                .status(PMSState.COMPLETED)
+                                .startDate(LocalDate.of(2026, 7, 1))
+                                .endDate(LocalDate.of(2026, 7, 31))
+                                .finalizedDate(LocalDate.of(2026, 7, 28))
+                                .overallScore(4.25)
+                                .performanceGrade("Excellent Performance")
+                                .build();
+                pmsAssignmentRepository.save(julyAssignment);
 
-    @Override
-    @Transactional
-    public void run(ApplicationArguments args) {
-        log.info("Checking and seeding initial PMS database records...");
+                PmsKpi julyKpi1 = PmsKpi.builder()
+                                .assignment(julyAssignment)
+                                .kpiName("Sprint Goal Achievement")
+                                .description("Successfully completed all assigned sprint goals.")
+                                .weightage(40.0)
+                                .build();
+                pmsKpiRepository.save(julyKpi1);
 
-        // 1. Seed Departments
-        seedDepartments();
+                EmployeeKpiRating julyRating1 = EmployeeKpiRating.builder()
+                                .assignment(julyAssignment)
+                                .kpi(julyKpi1)
+                                .selfRating(4.5)
+                                .comments("Delivered high performance features ahead of deadlines.")
+                                .build();
+                employeeKpiRatingRepository.save(julyRating1);
 
-        // 2. Seed Designations
-        seedDesignations();
+                EmployeeReview julyReview = EmployeeReview.builder()
+                                .assignment(julyAssignment)
+                                .reviewer(manager)
+                                .comments("Exceptional velocity and dependable work throughout July.")
+                                .reviewDate(LocalDate.of(2026, 7, 26))
+                                .build();
+                employeeReviewRepository.save(julyReview);
 
-        // 3. Seed Primary HR User (aishwarya.logaraj@aseuro.in)
-        seedHrUser();
+                FinalPmsResult julyResult = FinalPmsResult.builder()
+                                .assignment(julyAssignment)
+                                .finalScore(4.25)
+                                .grade("Excellent Performance")
+                                .finalizedBy(hr)
+                                .finalizedDate(LocalDate.of(2026, 7, 28))
+                                .build();
+                finalPmsResultRepository.save(julyResult);
 
-        // 4. Seed Initial Manager & Employee for testing login
-        seedInitialManagerAndEmployee();
+                PmsHistory julyHistory = PmsHistory.builder()
+                                .employee(employee)
+                                .cycleMonth("July 2026")
+                                .finalScore(4.25)
+                                .grade("Excellent Performance")
+                                .finalizedDate(LocalDate.of(2026, 7, 28))
+                                .assignmentId(julyAssignment.getId())
+                                .build();
+                pmsHistoryRepository.save(julyHistory);
 
-        log.info("Database seeding completed successfully.");
-    }
+                seedHrReviewKpisForAssignment(julyAssignment, 5.0, "FINALIZED");
 
-    private void seedDepartments() {
-        List<String> defaultDepts = List.of(
-                "Engineering",
-                "Human Resources",
-                "Sales & Marketing",
-                "Product & Design",
-                "Finance & Operations"
-        );
-        for (String name : defaultDepts) {
-            if (departmentRepository.findByNameIgnoreCase(name).isEmpty()) {
-                Department dept = new Department(name, name + " Department");
-                departmentRepository.save(dept);
-                log.info("Seeded department: {}", name);
-            }
-        }
-    }
+                // 4. Seed history (June 2026)
+                PmsAssignment juneAssignment = PmsAssignment.builder()
+                                .employee(employee)
+                                .cycleMonth("June 2026")
+                                .status(PMSState.COMPLETED)
+                                .startDate(LocalDate.of(2026, 6, 1))
+                                .endDate(LocalDate.of(2026, 6, 30))
+                                .finalizedDate(LocalDate.of(2026, 6, 28))
+                                .overallScore(3.90)
+                                .performanceGrade("Good Performance")
+                                .build();
+                pmsAssignmentRepository.save(juneAssignment);
 
-    private void seedDesignations() {
-        List<String> defaultDesignations = List.of(
-                "Engineering Manager",
-                "Senior Software Engineer",
-                "Software Engineer",
-                "Associate Software Engineer",
-                "HR Lead",
-                "HR Executive",
-                "Product Manager",
-                "UI/UX Designer",
-                "QA Engineer"
-        );
-        for (String name : defaultDesignations) {
-            if (designationRepository.findByNameIgnoreCase(name).isEmpty()) {
-                Designation designation = new Designation(name, name + " Role");
-                designationRepository.save(designation);
-                log.info("Seeded designation: {}", name);
-            }
-        }
-    }
+                PmsHistory juneHistory = PmsHistory.builder()
+                                .employee(employee)
+                                .cycleMonth("June 2026")
+                                .finalScore(3.90)
+                                .grade("Good Performance")
+                                .finalizedDate(LocalDate.of(2026, 6, 28))
+                                .assignmentId(juneAssignment.getId())
+                                .build();
+                pmsHistoryRepository.save(juneHistory);
 
-    private void seedHrUser() {
-        String hrEmail = "aishwarya.logaraj@aseuro.in";
-        if (userRepository.findByEmailIgnoreCase(hrEmail).isEmpty()) {
-            User hrUser = new User();
-            hrUser.setUsername("aishwarya.logaraj");
-            hrUser.setEmail(hrEmail);
-            hrUser.setPasswordHash(passwordEncoder.encode("Aseuro@123"));
-            hrUser.setRole(UserRole.HR);
-            hrUser.setStatus(RecordStatus.ACTIVE);
-            User savedUser = userRepository.save(hrUser);
+                // 5. Seed history (May 2026)
+                PmsAssignment mayAssignment = PmsAssignment.builder()
+                                .employee(employee)
+                                .cycleMonth("May 2026")
+                                .status(PMSState.COMPLETED)
+                                .startDate(LocalDate.of(2026, 5, 1))
+                                .endDate(LocalDate.of(2026, 5, 31))
+                                .finalizedDate(LocalDate.of(2026, 5, 28))
+                                .overallScore(4.10)
+                                .performanceGrade("Excellent Performance")
+                                .build();
+                pmsAssignmentRepository.save(mayAssignment);
 
-            // Also create employee profile for HR
-            Department hrDept = departmentRepository.findByNameIgnoreCase("Human Resources").orElse(null);
-            Designation hrRole = designationRepository.findByNameIgnoreCase("HR Lead").orElse(null);
-
-            Employee hrEmp = new Employee();
-            hrEmp.setUser(savedUser);
-            hrEmp.setEmployeeCode("HR-001");
-            hrEmp.setFullName("Aishwarya Logaraj");
-            hrEmp.setEmail(hrEmail);
-            if (hrDept != null) hrEmp.setDepartmentId(hrDept.getId());
-            if (hrRole != null) hrEmp.setDesignationId(hrRole.getId());
-            hrEmp.setJoiningDate(LocalDate.of(2023, 1, 15));
-            hrEmp.setStatus(RecordStatus.ACTIVE);
-            employeeRepository.save(hrEmp);
-
-            log.info("Provisioned HR Administrator account: {}", hrEmail);
-        }
-    }
-
-    private void seedInitialManagerAndEmployee() {
-        Department engDept = departmentRepository.findByNameIgnoreCase("Engineering").orElse(null);
-        Designation mgrDesig = designationRepository.findByNameIgnoreCase("Engineering Manager").orElse(null);
-        Designation sdeDesig = designationRepository.findByNameIgnoreCase("Software Engineer").orElse(null);
-
-        // 1. Seed Manager
-        String mgrEmail = "manager@aseuro.in";
-        Employee savedMgr = null;
-        if (userRepository.findByEmailIgnoreCase(mgrEmail).isEmpty()) {
-            User mgrUser = new User();
-            mgrUser.setUsername("rajesh.manager");
-            mgrUser.setEmail(mgrEmail);
-            mgrUser.setPasswordHash(passwordEncoder.encode("Manager@123"));
-            mgrUser.setRole(UserRole.MANAGER);
-            mgrUser.setStatus(RecordStatus.ACTIVE);
-            User saved = userRepository.save(mgrUser);
-
-            Employee mgrEmp = new Employee();
-            mgrEmp.setUser(saved);
-            mgrEmp.setEmployeeCode("MGR-101");
-            mgrEmp.setFullName("Rajesh Sharma");
-            mgrEmp.setEmail(mgrEmail);
-            if (engDept != null) mgrEmp.setDepartmentId(engDept.getId());
-            if (mgrDesig != null) mgrEmp.setDesignationId(mgrDesig.getId());
-            mgrEmp.setJoiningDate(LocalDate.of(2022, 6, 1));
-            mgrEmp.setStatus(RecordStatus.ACTIVE);
-            savedMgr = employeeRepository.save(mgrEmp);
-            log.info("Provisioned Manager account: {}", mgrEmail);
-        } else {
-            savedMgr = employeeRepository.findByEmailIgnoreCase(mgrEmail).orElse(null);
+                PmsHistory mayHistory = PmsHistory.builder()
+                                .employee(employee)
+                                .cycleMonth("May 2026")
+                                .finalScore(4.10)
+                                .grade("Excellent Performance")
+                                .finalizedDate(LocalDate.of(2026, 5, 28))
+                                .assignmentId(mayAssignment.getId())
+                                .build();
+                pmsHistoryRepository.save(mayHistory);
         }
 
-        // 2. Seed Employee
-        String empEmail = "employee@aseuro.in";
-        if (userRepository.findByEmailIgnoreCase(empEmail).isEmpty()) {
-            User empUser = new User();
-            empUser.setUsername("kiran.employee");
-            empUser.setEmail(empEmail);
-            empUser.setPasswordHash(passwordEncoder.encode("Employee@123"));
-            empUser.setRole(UserRole.EMPLOYEE);
-            empUser.setStatus(RecordStatus.ACTIVE);
-            User saved = userRepository.save(empUser);
+        private void seedKpiMasterData() {
+                if (kpiMasterRepository.count() > 0) {
+                        // Ensure all existing null categories are set to ROLE_KPI
+                        List<KpiMaster> all = kpiMasterRepository.findAll();
+                        for (KpiMaster km : all) {
+                                if (km.getKpiCategory() == null) {
+                                        km.setKpiCategory("ROLE_KPI");
+                                        kpiMasterRepository.save(km);
+                                }
+                        }
+                        if (kpiMasterRepository.findByKpiCategoryAndStatus("HR_REVIEW_KPI", "ACTIVE").isEmpty()) {
+                                seedHrReviewKpis();
+                        }
+                        return;
+                }
 
-            Employee emp = new Employee();
-            emp.setUser(saved);
-            emp.setEmployeeCode("EMP-201");
-            emp.setFullName("Kiran Kumar");
-            emp.setEmail(empEmail);
-            if (engDept != null) emp.setDepartmentId(engDept.getId());
-            if (sdeDesig != null) emp.setDesignationId(sdeDesig.getId());
-            if (savedMgr != null) emp.setManagerId(savedMgr.getId());
-            emp.setJoiningDate(LocalDate.of(2024, 2, 10));
-            emp.setStatus(RecordStatus.ACTIVE);
-            employeeRepository.save(emp);
-            log.info("Provisioned Employee account: {}", empEmail);
+                // Software Engineer KPIs (Total = 100%)
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("Software Engineer")
+                                .kpiName("Code Quality")
+                                .description("Maintain high code quality, test coverage > 80%, and adhere to best practices.")
+                                .weightage(20.0)
+                                .applicableFor("Employee")
+                                .build());
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("Software Engineer")
+                                .kpiName("Delivery & Speed")
+                                .description("Deliver sprint tasks within estimation timelines with minimal spillover.")
+                                .weightage(40.0)
+                                .applicableFor("Employee")
+                                .build());
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("Software Engineer")
+                                .kpiName("Communication & Collaboration")
+                                .description("Collaborate effectively with cross-functional teams and maintain clear updates.")
+                                .weightage(20.0)
+                                .applicableFor("Both Employee & Manager")
+                                .build());
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("Software Engineer")
+                                .kpiName("Innovation & Optimization")
+                                .description("Propose and implement performance optimizations or developer workflow tooling.")
+                                .weightage(20.0)
+                                .applicableFor("Employee")
+                                .build());
+
+                // Senior Software Engineer KPIs (Total = 100%)
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("Senior Software Engineer")
+                                .kpiName("Architecture & Design")
+                                .description("Design robust, scalable system architecture and conduct high-standard code reviews.")
+                                .weightage(25.0)
+                                .applicableFor("Employee")
+                                .build());
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("Senior Software Engineer")
+                                .kpiName("Feature Delivery & Velocity")
+                                .description("Lead delivery of complex epic features and unblock teammates during sprints.")
+                                .weightage(35.0)
+                                .applicableFor("Employee")
+                                .build());
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("Senior Software Engineer")
+                                .kpiName("Team Mentorship")
+                                .description("Mentor junior and mid-level engineers and conduct brown bag technical sessions.")
+                                .weightage(20.0)
+                                .applicableFor("Both Employee & Manager")
+                                .build());
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("Senior Software Engineer")
+                                .kpiName("CI/CD & DevOps Excellence")
+                                .description("Improve build pipelines, decrease deployment friction, and ensure system uptime >= 99.9%.")
+                                .weightage(20.0)
+                                .applicableFor("Employee")
+                                .build());
+
+                // Tech Lead KPIs (Total = 100%)
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("Tech Lead")
+                                .kpiName("Technical Strategy & Architecture")
+                                .description("Define roadmap technical milestones, service boundaries, and cross-cutting frameworks.")
+                                .weightage(30.0)
+                                .applicableFor("Both Employee & Manager")
+                                .build());
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("Tech Lead")
+                                .kpiName("Sprint Execution & Delivery")
+                                .description("Manage technical commitments, break down epics, and drive sprint velocity.")
+                                .weightage(30.0)
+                                .applicableFor("Both Employee & Manager")
+                                .build());
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("Tech Lead")
+                                .kpiName("Engineering Leadership & Standards")
+                                .description("Establish engineering excellence, quality standards, and mentor team members.")
+                                .weightage(25.0)
+                                .applicableFor("Both Employee & Manager")
+                                .build());
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("Tech Lead")
+                                .kpiName("Stakeholder Alignment")
+                                .description("Partner with product managers, QA, and HR to align delivery expectations.")
+                                .weightage(15.0)
+                                .applicableFor("Both Employee & Manager")
+                                .build());
+
+                // Engineering Manager KPIs (Total = 100%)
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("Engineering Manager")
+                                .kpiName("Team Delivery & Milestones")
+                                .description("Ensure on-time delivery of quarterly organizational commitments and sprint objectives.")
+                                .weightage(35.0)
+                                .applicableFor("Manager")
+                                .build());
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("Engineering Manager")
+                                .kpiName("People Management & Growth")
+                                .description("Drive 1-on-1s, career growth, performance appraisals, and retain engineering talent.")
+                                .weightage(25.0)
+                                .applicableFor("Manager")
+                                .build());
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("Engineering Manager")
+                                .kpiName("Strategic Planning & Budgeting")
+                                .description("Plan resource allocation, hiring, and technology investments.")
+                                .weightage(20.0)
+                                .applicableFor("Manager")
+                                .build());
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("Engineering Manager")
+                                .kpiName("Operational Excellence")
+                                .description("Foster agile best practices, incident retrospectives, and cross-team alignment.")
+                                .weightage(20.0)
+                                .applicableFor("Manager")
+                                .build());
+
+                // QA Engineer KPIs (Total = 100%)
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("QA Engineer")
+                                .kpiName("Test Automation & Coverage")
+                                .description("Develop automated end-to-end regression test suites and maintain > 90% automation coverage.")
+                                .weightage(35.0)
+                                .applicableFor("Employee")
+                                .build());
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("QA Engineer")
+                                .kpiName("Defect Prevention & Quality")
+                                .description("Identify critical bugs early in sprint cycle and ensure zero production P0 escapes.")
+                                .weightage(30.0)
+                                .applicableFor("Employee")
+                                .build());
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("QA Engineer")
+                                .kpiName("Release Verification")
+                                .description("Perform staging sign-offs, smoke testing, and continuous deployment validation.")
+                                .weightage(20.0)
+                                .applicableFor("Employee")
+                                .build());
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("QA Engineer")
+                                .kpiName("Documentation & Standards")
+                                .description("Maintain detailed test plans, bug reproduction steps, and testing documentation.")
+                                .weightage(15.0)
+                                .applicableFor("Employee")
+                                .build());
+
+                // HR Director KPIs (Total = 100%)
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("HR Director")
+                                .kpiName("Recruitment & Talent Acquisition")
+                                .description("Source top talent, reduce time-to-hire, and meet organizational staffing roadmaps.")
+                                .weightage(20.0)
+                                .applicableFor("Both Employee & Manager")
+                                .build());
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("HR Director")
+                                .kpiName("Employee Engagement & Retention")
+                                .description("Conduct quarterly engagement initiatives, pulse surveys, and improve employee retention rate >= 92%.")
+                                .weightage(15.0)
+                                .applicableFor("Both Employee & Manager")
+                                .build());
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("HR Director")
+                                .kpiName("Performance Management & Appraisals")
+                                .description("Oversee timely execution of monthly and quarterly PMS cycles, manager reviews, and calibration.")
+                                .weightage(15.0)
+                                .applicableFor("Both Employee & Manager")
+                                .build());
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("HR Director")
+                                .kpiName("HR Policy Compliance & Audits")
+                                .description("Enforce 100% statutory labor compliance, workplace safety regulations, and internal audits.")
+                                .weightage(15.0)
+                                .applicableFor("Both Employee & Manager")
+                                .build());
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("HR Director")
+                                .kpiName("Training & Leadership Development")
+                                .description("Plan and deliver upskilling programs, leadership brown bags, and technical certifications.")
+                                .weightage(15.0)
+                                .applicableFor("Both Employee & Manager")
+                                .build());
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("HR Director")
+                                .kpiName("Payroll & Benefits Administration")
+                                .description("Coordinate accurate monthly payroll processing, tax compliance, and benefit disbursements.")
+                                .weightage(10.0)
+                                .applicableFor("Both Employee & Manager")
+                                .build());
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("HR Director")
+                                .kpiName("Workplace Culture & Employee Welfare")
+                                .description("Promote positive team collaboration, new initiatives, rewards, and recognition programs.")
+                                .weightage(10.0)
+                                .applicableFor("Both Employee & Manager")
+                                .build());
+
+                // HR Manager KPIs (Total = 100%)
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("HR Manager")
+                                .kpiName("Recruitment & Talent Sourcing")
+                                .description("Execute candidate screening, technical interviews, and on-time candidate onboarding.")
+                                .weightage(20.0)
+                                .applicableFor("Manager")
+                                .build());
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("HR Manager")
+                                .kpiName("Performance Review Operations")
+                                .description("Coordinate PMS submissions, manager reviews, and resolve workflow bottlenecks.")
+                                .weightage(20.0)
+                                .applicableFor("Manager")
+                                .build());
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("HR Manager")
+                                .kpiName("HR Policy Implementation")
+                                .description("Roll out organizational policies, leave systems, and employee welfare programs.")
+                                .weightage(20.0)
+                                .applicableFor("Manager")
+                                .build());
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("HR Manager")
+                                .kpiName("Employee Relations & Grievances")
+                                .description("Facilitate timely resolution of employee grievances and mediate manager discussions.")
+                                .weightage(20.0)
+                                .applicableFor("Manager")
+                                .build());
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("HR Manager")
+                                .kpiName("HR Operations & Documentation")
+                                .description("Maintain employee service records, offer letters, and policy handbooks with 100% accuracy.")
+                                .weightage(10.0)
+                                .applicableFor("Manager")
+                                .build());
+
+                seedHrReviewKpis();
         }
->>>>>>> 7e242a5ead40c3cafff0fc936fda8630cb8d09d3
-    }
+
+        private void seedHrReviewKpis() {
+                if (!kpiMasterRepository.findByKpiCategoryAndStatus("HR_REVIEW_KPI", "ACTIVE").isEmpty()) {
+                        return;
+                }
+
+                // HR Review KPIs (Global for All Employees, Total = 100%)
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("ALL")
+                                .kpiName("Leave Pattern")
+                                .description("Planned leaves should be 95% of total leaves; unplanned leaves should not exceed 5% in a year, including sick leave; sick leave every month for more than two days requires a medical certificate.")
+                                .weightage(20.0)
+                                .applicableFor("Both Employee & Manager")
+                                .kpiCategory("HR_REVIEW_KPI")
+                                .status("ACTIVE")
+                                .build());
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("ALL")
+                                .kpiName("Team Collaboration and Engagement")
+                                .description("Active cross-functional collaboration, participation in team activities, and fostering positive team dynamics.")
+                                .weightage(20.0)
+                                .applicableFor("Both Employee & Manager")
+                                .kpiCategory("HR_REVIEW_KPI")
+                                .status("ACTIVE")
+                                .build());
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("ALL")
+                                .kpiName("Punctuality")
+                                .description("Adherence to work hours, prompt attendance in scrum meetings, sprint ceremonies, and timely deliverables.")
+                                .weightage(20.0)
+                                .applicableFor("Both Employee & Manager")
+                                .kpiCategory("HR_REVIEW_KPI")
+                                .status("ACTIVE")
+                                .build());
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("ALL")
+                                .kpiName("New Initiatives and Participation")
+                                .description("Contribution to process improvements, knowledge sharing sessions, brown bags, and company-wide initiatives.")
+                                .weightage(20.0)
+                                .applicableFor("Both Employee & Manager")
+                                .kpiCategory("HR_REVIEW_KPI")
+                                .status("ACTIVE")
+                                .build());
+                kpiMasterRepository.save(KpiMaster.builder()
+                                .designation("ALL")
+                                .kpiName("Rewards")
+                                .description("Recognition through spot awards, peer commendations, customer appreciation, and exceptional contributions.")
+                                .weightage(20.0)
+                                .applicableFor("Both Employee & Manager")
+                                .kpiCategory("HR_REVIEW_KPI")
+                                .status("ACTIVE")
+                                .build());
+        }
+
+        private void syncEmployeeHistoricalAssignments(Employee emp, Employee manager, Employee hr) {
+                // July 2026
+                PmsAssignment julyAssignment = pmsAssignmentRepository.findByEmployeeAndCycleMonth(emp, "July 2026")
+                                .orElseGet(() -> {
+                                        PmsAssignment ja = PmsAssignment.builder()
+                                                        .employee(emp)
+                                                        .cycleMonth("July 2026")
+                                                        .status(PMSState.COMPLETED)
+                                                        .startDate(LocalDate.of(2026, 7, 1))
+                                                        .endDate(LocalDate.of(2026, 7, 31))
+                                                        .finalizedDate(LocalDate.of(2026, 7, 28))
+                                                        .overallScore(4.25)
+                                                        .performanceGrade("Excellent Performance")
+                                                        .build();
+                                        pmsAssignmentRepository.save(ja);
+
+                                        PmsKpi julyKpi1 = PmsKpi.builder()
+                                                        .assignment(ja)
+                                                        .kpiName("Sprint Goal Achievement")
+                                                        .description("Successfully completed all assigned sprint goals.")
+                                                        .weightage(40.0)
+                                                        .build();
+                                        pmsKpiRepository.save(julyKpi1);
+
+                                        EmployeeKpiRating julyRating1 = EmployeeKpiRating.builder()
+                                                        .assignment(ja)
+                                                        .kpi(julyKpi1)
+                                                        .selfRating(4.5)
+                                                        .comments("Delivered high performance features ahead of deadlines.")
+                                                        .build();
+                                        employeeKpiRatingRepository.save(julyRating1);
+
+                                        if (manager != null) {
+                                                EmployeeReview julyReview = EmployeeReview.builder()
+                                                                .assignment(ja)
+                                                                .reviewer(manager)
+                                                                .comments("Exceptional velocity and dependable work throughout July.")
+                                                                .reviewDate(LocalDate.of(2026, 7, 26))
+                                                                .build();
+                                                employeeReviewRepository.save(julyReview);
+                                        }
+
+                                        if (hr != null) {
+                                                FinalPmsResult julyResult = FinalPmsResult.builder()
+                                                                .assignment(ja)
+                                                                .finalScore(4.25)
+                                                                .grade("Excellent Performance")
+                                                                .finalizedBy(hr)
+                                                                .finalizedDate(LocalDate.of(2026, 7, 28))
+                                                                .build();
+                                                finalPmsResultRepository.save(julyResult);
+                                        }
+
+                                        return ja;
+                                });
+
+                // Update PmsHistory for July
+                List<PmsHistory> histList = pmsHistoryRepository.findByEmployeeOrderByCycleMonthDesc(emp);
+                Optional<PmsHistory> julyHistOpt = histList.stream().filter(h -> "July 2026".equals(h.getCycleMonth())).findFirst();
+                if (julyHistOpt.isPresent()) {
+                        PmsHistory jh = julyHistOpt.get();
+                        jh.setAssignmentId(julyAssignment.getId());
+                        pmsHistoryRepository.save(jh);
+                } else {
+                        pmsHistoryRepository.save(PmsHistory.builder()
+                                        .employee(emp)
+                                        .cycleMonth("July 2026")
+                                        .finalScore(4.25)
+                                        .grade("Excellent Performance")
+                                        .finalizedDate(LocalDate.of(2026, 7, 28))
+                                        .assignmentId(julyAssignment.getId())
+                                        .build());
+                }
+
+                // Ensure HR review KPIs exist for July
+                List<PmsKpi> existingHrKpis = pmsKpiRepository.findByAssignment(julyAssignment).stream()
+                                .filter(k -> "HR_REVIEW_KPI".equals(k.getKpiCategory()))
+                                .toList();
+                if (existingHrKpis.isEmpty()) {
+                        seedHrReviewKpisForAssignment(julyAssignment, 5.0, "FINALIZED");
+                }
+
+                // June 2026
+                PmsAssignment juneAssignment = pmsAssignmentRepository.findByEmployeeAndCycleMonth(emp, "June 2026")
+                                .orElseGet(() -> {
+                                        PmsAssignment ja = PmsAssignment.builder()
+                                                        .employee(emp)
+                                                        .cycleMonth("June 2026")
+                                                        .status(PMSState.COMPLETED)
+                                                        .startDate(LocalDate.of(2026, 6, 1))
+                                                        .endDate(LocalDate.of(2026, 6, 30))
+                                                        .finalizedDate(LocalDate.of(2026, 6, 28))
+                                                        .overallScore(3.90)
+                                                        .performanceGrade("Good Performance")
+                                                        .build();
+                                        pmsAssignmentRepository.save(ja);
+
+                                        PmsKpi juneKpi1 = PmsKpi.builder()
+                                                        .assignment(ja)
+                                                        .kpiName("Delivery & Execution")
+                                                        .description("Executed all tasks on schedule.")
+                                                        .weightage(40.0)
+                                                        .build();
+                                        pmsKpiRepository.save(juneKpi1);
+
+                                        return ja;
+                                });
+
+                Optional<PmsHistory> juneHistOpt = histList.stream().filter(h -> "June 2026".equals(h.getCycleMonth())).findFirst();
+                if (juneHistOpt.isPresent()) {
+                        PmsHistory jh = juneHistOpt.get();
+                        jh.setAssignmentId(juneAssignment.getId());
+                        pmsHistoryRepository.save(jh);
+                } else {
+                        pmsHistoryRepository.save(PmsHistory.builder()
+                                        .employee(emp)
+                                        .cycleMonth("June 2026")
+                                        .finalScore(3.90)
+                                        .grade("Good Performance")
+                                        .finalizedDate(LocalDate.of(2026, 6, 28))
+                                        .assignmentId(juneAssignment.getId())
+                                        .build());
+                }
+
+                // May 2026
+                PmsAssignment mayAssignment = pmsAssignmentRepository.findByEmployeeAndCycleMonth(emp, "May 2026")
+                                .orElseGet(() -> {
+                                        PmsAssignment ma = PmsAssignment.builder()
+                                                        .employee(emp)
+                                                        .cycleMonth("May 2026")
+                                                        .status(PMSState.COMPLETED)
+                                                        .startDate(LocalDate.of(2026, 5, 1))
+                                                        .endDate(LocalDate.of(2026, 5, 31))
+                                                        .finalizedDate(LocalDate.of(2026, 5, 28))
+                                                        .overallScore(4.10)
+                                                        .performanceGrade("Excellent Performance")
+                                                        .build();
+                                        pmsAssignmentRepository.save(ma);
+
+                                        PmsKpi mayKpi1 = PmsKpi.builder()
+                                                        .assignment(ma)
+                                                        .kpiName("Core Platform Modernization")
+                                                        .description("Led key platform improvements.")
+                                                        .weightage(40.0)
+                                                        .build();
+                                        pmsKpiRepository.save(mayKpi1);
+
+                                        return ma;
+                                });
+
+                Optional<PmsHistory> mayHistOpt = histList.stream().filter(h -> "May 2026".equals(h.getCycleMonth())).findFirst();
+                if (mayHistOpt.isPresent()) {
+                        PmsHistory mh = mayHistOpt.get();
+                        mh.setAssignmentId(mayAssignment.getId());
+                        pmsHistoryRepository.save(mh);
+                } else {
+                        pmsHistoryRepository.save(PmsHistory.builder()
+                                        .employee(emp)
+                                        .cycleMonth("May 2026")
+                                        .finalScore(4.10)
+                                        .grade("Excellent Performance")
+                                        .finalizedDate(LocalDate.of(2026, 5, 28))
+                                        .assignmentId(mayAssignment.getId())
+                                        .build());
+                }
+        }
+
+        private void seedHrReviewKpisForAssignment(PmsAssignment assignment, Double hrRating, String status) {
+                List<KpiMaster> hrMasters = kpiMasterRepository.findByKpiCategoryAndStatus("HR_REVIEW_KPI", "ACTIVE");
+                for (KpiMaster m : hrMasters) {
+                        PmsKpi pk = PmsKpi.builder()
+                                        .assignment(assignment)
+                                        .kpiName(m.getKpiName())
+                                        .description(m.getDescription())
+                                        .weightage(m.getWeightage())
+                                        .applicableFor(m.getApplicableFor())
+                                        .kpiCategory("HR_REVIEW_KPI")
+                                        .build();
+                        pmsKpiRepository.save(pk);
+
+                        EmployeeKpiRating r = EmployeeKpiRating.builder()
+                                        .assignment(assignment)
+                                        .kpi(pk)
+                                        .hrRating(hrRating)
+                                        .status(status)
+                                        .build();
+                        employeeKpiRatingRepository.save(r);
+                }
+        }
+
+        private void seedHrAugustAssignment(Employee hr) {
+                PmsAssignment hrAssignment = PmsAssignment.builder()
+                                .employee(hr)
+                                .cycleMonth("August 2026")
+                                .status(PMSState.SELF_ASSESSMENT_DRAFT)
+                                .startDate(LocalDate.of(2026, 8, 1))
+                                .endDate(LocalDate.of(2026, 8, 31))
+                                .submissionDeadline(LocalDate.of(2026, 8, 25))
+                                .build();
+                pmsAssignmentRepository.save(hrAssignment);
+
+                List<PmsKpi> hrKpis = List.of(
+                                PmsKpi.builder()
+                                                .assignment(hrAssignment)
+                                                .kpiName("Recruitment & Talent Acquisition")
+                                                .description("Source top talent, reduce time-to-hire, and meet organizational staffing roadmaps.")
+                                                .weightage(20.0)
+                                                .build(),
+                                PmsKpi.builder()
+                                                .assignment(hrAssignment)
+                                                .kpiName("Employee Engagement & Retention")
+                                                .description("Conduct quarterly engagement initiatives, pulse surveys, and improve employee retention rate >= 92%.")
+                                                .weightage(15.0)
+                                                .build(),
+                                PmsKpi.builder()
+                                                .assignment(hrAssignment)
+                                                .kpiName("Performance Management & Appraisals")
+                                                .description("Oversee timely execution of monthly and quarterly PMS cycles, manager reviews, and calibration.")
+                                                .weightage(15.0)
+                                                .build(),
+                                PmsKpi.builder()
+                                                .assignment(hrAssignment)
+                                                .kpiName("HR Policy Compliance & Audits")
+                                                .description("Enforce 100% statutory labor compliance, workplace safety regulations, and internal audits.")
+                                                .weightage(15.0)
+                                                .build(),
+                                PmsKpi.builder()
+                                                .assignment(hrAssignment)
+                                                .kpiName("Training & Leadership Development")
+                                                .description("Plan and deliver upskilling programs, leadership brown bags, and technical certifications.")
+                                                .weightage(15.0)
+                                                .build(),
+                                PmsKpi.builder()
+                                                .assignment(hrAssignment)
+                                                .kpiName("Payroll & Benefits Administration")
+                                                .description("Coordinate accurate monthly payroll processing, tax compliance, and benefit disbursements.")
+                                                .weightage(10.0)
+                                                .build(),
+                                PmsKpi.builder()
+                                                .assignment(hrAssignment)
+                                                .kpiName("Workplace Culture & Employee Welfare")
+                                                .description("Promote positive team collaboration, new initiatives, rewards, and recognition programs.")
+                                                .weightage(10.0)
+                                                .build());
+                pmsKpiRepository.saveAll(hrKpis);
+        }
+
+        private void seedHrAugustKpisOnly(PmsAssignment hrAssignment) {
+                List<PmsKpi> hrKpis = List.of(
+                                PmsKpi.builder()
+                                                .assignment(hrAssignment)
+                                                .kpiName("Recruitment & Talent Acquisition")
+                                                .description("Source top talent, reduce time-to-hire, and meet organizational staffing roadmaps.")
+                                                .weightage(20.0)
+                                                .build(),
+                                PmsKpi.builder()
+                                                .assignment(hrAssignment)
+                                                .kpiName("Employee Engagement & Retention")
+                                                .description("Conduct quarterly engagement initiatives, pulse surveys, and improve employee retention rate >= 92%.")
+                                                .weightage(15.0)
+                                                .build(),
+                                PmsKpi.builder()
+                                                .assignment(hrAssignment)
+                                                .kpiName("Performance Management & Appraisals")
+                                                .description("Oversee timely execution of monthly and quarterly PMS cycles, manager reviews, and calibration.")
+                                                .weightage(15.0)
+                                                .build(),
+                                PmsKpi.builder()
+                                                .assignment(hrAssignment)
+                                                .kpiName("HR Policy Compliance & Audits")
+                                                .description("Enforce 100% statutory labor compliance, workplace safety regulations, and internal audits.")
+                                                .weightage(15.0)
+                                                .build(),
+                                PmsKpi.builder()
+                                                .assignment(hrAssignment)
+                                                .kpiName("Training & Leadership Development")
+                                                .description("Plan and deliver upskilling programs, leadership brown bags, and technical certifications.")
+                                                .weightage(15.0)
+                                                .build(),
+                                PmsKpi.builder()
+                                                .assignment(hrAssignment)
+                                                .kpiName("Payroll & Benefits Administration")
+                                                .description("Coordinate accurate monthly payroll processing, tax compliance, and benefit disbursements.")
+                                                .weightage(10.0)
+                                                .build(),
+                                PmsKpi.builder()
+                                                .assignment(hrAssignment)
+                                                .kpiName("Workplace Culture & Employee Welfare")
+                                                .description("Promote positive team collaboration, new initiatives, rewards, and recognition programs.")
+                                                .weightage(10.0)
+                                                .build());
+                pmsKpiRepository.saveAll(hrKpis);
+        }
+
+        private void seedManagerAugustAssignment(Employee manager) {
+                PmsAssignment mgrAssignment = PmsAssignment.builder()
+                                .employee(manager)
+                                .cycleMonth("August 2026")
+                                .status(PMSState.SELF_ASSESSMENT_DRAFT)
+                                .startDate(LocalDate.of(2026, 8, 1))
+                                .endDate(LocalDate.of(2026, 8, 31))
+                                .submissionDeadline(LocalDate.of(2026, 8, 25))
+                                .build();
+                pmsAssignmentRepository.save(mgrAssignment);
+
+                List<PmsKpi> mgrKpis = List.of(
+                                PmsKpi.builder()
+                                                .assignment(mgrAssignment)
+                                                .kpiName("Team Delivery & Milestones")
+                                                .description("Ensure on-time delivery of quarterly organizational commitments and sprint objectives.")
+                                                .weightage(35.0)
+                                                .build(),
+                                PmsKpi.builder()
+                                                .assignment(mgrAssignment)
+                                                .kpiName("People Management & Growth")
+                                                .description("Drive 1-on-1s, career growth, performance appraisals, and retain engineering talent.")
+                                                .weightage(25.0)
+                                                .build(),
+                                PmsKpi.builder()
+                                                .assignment(mgrAssignment)
+                                                .kpiName("Strategic Planning & Budgeting")
+                                                .description("Plan resource allocation, hiring, and technology investments.")
+                                                .weightage(20.0)
+                                                .build(),
+                                PmsKpi.builder()
+                                                .assignment(mgrAssignment)
+                                                .kpiName("Operational Excellence")
+                                                .description("Foster agile best practices, incident retrospectives, and cross-team alignment.")
+                                                .weightage(20.0)
+                                                .build());
+                pmsKpiRepository.saveAll(mgrKpis);
+        }
 }
