@@ -19,5 +19,6 @@ public class PmsAssignmentDto {
     private LocalDate finalizedDate;
     private EmployeeDto employee;
     private List<KpiDto> kpis;
+    private List<KpiDto> hrReviewKpis;
     private List<ReviewDto> reviews;
 }

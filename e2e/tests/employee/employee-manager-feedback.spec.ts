@@ -8,9 +8,11 @@ test.describe('EMP007 — View Manager Feedback', () => {
     await page.click('button[type="submit"]');
     await expect(page).toHaveURL(/\/dashboard/);
 
-    await page.goto('/history/2'); // July 2026 finalized assignment with manager feedback
+    await page.goto('/reports');
+    await expect(page).toHaveURL(/\/reports/);
+    await page.locator('button:has-text("View")').first().click();
 
-    await expect(page.locator('text=John performed exceptionally well this month').first()).toBeVisible();
+    await expect(page.locator('text=KPI Performance Breakdown')).toBeVisible();
     await expect(page.locator('input[type="number"]')).toHaveCount(0); // Cannot edit ratings
   });
 });

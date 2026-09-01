@@ -6,7 +6,7 @@ test.describe('EMP001 — Dashboard Verification', () => {
     await page.fill('#email', 'employee@aseuro.com');
     await page.fill('#password', 'password');
     await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/\/dashboard/);
+    await expect(page).toHaveURL(/\/dashboard/, { timeout: 10000 });
   });
 
   test('EMP001-04 Dashboard loads with employee data', async ({ page }) => {

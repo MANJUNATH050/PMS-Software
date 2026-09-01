@@ -1,9 +1,10 @@
 package com.aseuro.pms.controller;
 
-<<<<<<< HEAD
 import com.aseuro.pms.dto.ForgotPasswordRequest;
 import com.aseuro.pms.dto.LoginRequest;
 import com.aseuro.pms.dto.LoginResponse;
+import com.aseuro.pms.model.Employee;
+import com.aseuro.pms.model.Role;
 import com.aseuro.pms.repository.EmployeeRepository;
 import com.aseuro.pms.security.JwtTokenProvider;
 import com.aseuro.pms.security.UserPrincipal;
@@ -17,9 +18,10 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
-@RequestMapping("/auth")
+@RequestMapping({"/api/auth", "/auth"})
 public class AuthController {
 
     private final AuthenticationManager authenticationManager;
@@ -39,15 +41,70 @@ public class AuthController {
                     .body(Map.of("message", "Email address is required."));
         }
 
-        if (employeeRepository.findByEmail(loginRequest.getEmail()).isEmpty()) {
+        String email = loginRequest.getEmail().trim();
+        Optional<Employee> empOpt = employeeRepository.findByEmail(email);
+
+        if (empOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("message", "Invalid email ID."));
+                    .body(Map.of("message", "Invalid email or password."));
         }
 
+        Employee emp = empOpt.get();
+
+        // 1. Check Server-Side Account Lock Status
+        if (emp.getLockedUntil() != null) {
+            java.time.LocalDateTime now = java.time.LocalDateTime.now();
+            if (now.isBefore(emp.getLockedUntil())) {
+                long remainingSecs = java.time.Duration.between(now, emp.getLockedUntil()).getSeconds();
+                if (remainingSecs < 0) remainingSecs = 0;
+
+                Map<String, Object> lockResponse = new HashMap<>();
+                lockResponse.put("message", "Too many failed login attempts. Your account has been temporarily locked for 5 minutes.");
+                lockResponse.put("locked", true);
+                lockResponse.put("lockedUntil", emp.getLockedUntil().toString());
+                lockResponse.put("remainingSeconds", remainingSecs);
+                return ResponseEntity.status(HttpStatus.LOCKED).body(lockResponse);
+            } else {
+                // Lock has expired - automatically reset
+                emp.setFailedLoginAttempts(0);
+                emp.setLockedUntil(null);
+                employeeRepository.save(emp);
+            }
+        }
+
+        // 2. Validate Role if explicitly requested
+        String requestedRole = loginRequest.getRole();
+        if (requestedRole != null && !requestedRole.trim().isEmpty()) {
+            String roleUpper = requestedRole.trim().toUpperCase();
+            if (roleUpper.equals("HR") || roleUpper.equals("ROLE_HR")) {
+                if (emp.getRole() != Role.ROLE_HR) {
+                    return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                            .body(Map.of("message", "Invalid HR email ID."));
+                }
+            } else if (roleUpper.equals("MANAGER") || roleUpper.equals("ROLE_MANAGER")) {
+                if (emp.getRole() != Role.ROLE_MANAGER) {
+                    return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                            .body(Map.of("message", "Invalid email ID."));
+                }
+            } else if (roleUpper.equals("EMPLOYEE") || roleUpper.equals("ROLE_EMPLOYEE")) {
+                if (emp.getRole() != Role.ROLE_EMPLOYEE) {
+                    return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                            .body(Map.of("message", "Invalid Employee email ID."));
+                }
+            }
+        }
+
+        // 3. Validate Account Active Status
+        if (emp.getAccountStatus() != null && !"ACTIVE".equalsIgnoreCase(emp.getAccountStatus())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Account is inactive. Please contact HR."));
+        }
+
+        // 4. Authenticate Credentials
         try {
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
-                            loginRequest.getEmail(),
+                            email,
                             loginRequest.getPassword()
                     )
             );
@@ -56,16 +113,78 @@ public class AuthController {
             String jwt = tokenProvider.generateToken(authentication);
             UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
 
-            return ResponseEntity.ok(new LoginResponse(
-                    jwt,
-                    "Bearer",
-                    userPrincipal.getUsername(),
-                    userPrincipal.getEmployee().getName(),
-                    userPrincipal.getEmployee().getRole().name()
-            ));
+            // Reset failed login attempts on successful login
+            if ((emp.getFailedLoginAttempts() != null && emp.getFailedLoginAttempts() > 0) || emp.getLockedUntil() != null) {
+                emp.setFailedLoginAttempts(0);
+                emp.setLockedUntil(null);
+                employeeRepository.save(emp);
+            }
+
+            return ResponseEntity.ok(LoginResponse.builder()
+                    .token(jwt)
+                    .tokenType("Bearer")
+                    .id(userPrincipal.getId())
+                    .email(userPrincipal.getUsername())
+                    .name(userPrincipal.getEmployee().getName())
+                    .role(userPrincipal.getEmployee().getRole().name())
+                    .build());
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("message", "Invalid email or password."));
+            // Track consecutive failed login attempts
+            int currentAttempts = (emp.getFailedLoginAttempts() != null ? emp.getFailedLoginAttempts() : 0) + 1;
+            emp.setFailedLoginAttempts(currentAttempts);
+
+            if (currentAttempts >= 5) {
+                java.time.LocalDateTime lockExpiry = java.time.LocalDateTime.now().plusMinutes(5);
+                emp.setLockedUntil(lockExpiry);
+                employeeRepository.save(emp);
+
+                Map<String, Object> lockResponse = new HashMap<>();
+                lockResponse.put("message", "Too many failed login attempts. Your account has been temporarily locked for 5 minutes.");
+                lockResponse.put("locked", true);
+                lockResponse.put("lockedUntil", lockExpiry.toString());
+                lockResponse.put("remainingSeconds", 300L);
+                return ResponseEntity.status(HttpStatus.LOCKED).body(lockResponse);
+            } else {
+                employeeRepository.save(emp);
+                int remainingAttempts = 5 - currentAttempts;
+
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("message", "Invalid email or password.");
+                errorResponse.put("failedAttempts", currentAttempts);
+                errorResponse.put("remainingAttempts", remainingAttempts);
+                errorResponse.put("locked", false);
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+            }
+        }
+    }
+
+    @GetMapping("/lock-status")
+    public ResponseEntity<?> getLockStatus(@RequestParam String email) {
+        if (email == null || email.trim().isEmpty()) {
+            return ResponseEntity.ok(Map.of("locked", false));
+        }
+
+        Optional<Employee> empOpt = employeeRepository.findByEmail(email.trim());
+        if (empOpt.isEmpty() || empOpt.get().getLockedUntil() == null) {
+            return ResponseEntity.ok(Map.of("locked", false));
+        }
+
+        Employee emp = empOpt.get();
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+
+        if (now.isBefore(emp.getLockedUntil())) {
+            long remainingSecs = java.time.Duration.between(now, emp.getLockedUntil()).getSeconds();
+            return ResponseEntity.ok(Map.of(
+                    "locked", true,
+                    "lockedUntil", emp.getLockedUntil().toString(),
+                    "remainingSeconds", Math.max(0, remainingSecs),
+                    "message", "Account temporarily locked."
+            ));
+        } else {
+            emp.setFailedLoginAttempts(0);
+            emp.setLockedUntil(null);
+            employeeRepository.save(emp);
+            return ResponseEntity.ok(Map.of("locked", false));
         }
     }
 
@@ -74,50 +193,5 @@ public class AuthController {
         Map<String, String> response = new HashMap<>();
         response.put("message", "If an account with " + forgotPasswordRequest.getEmail() + " exists, a password reset link has been sent.");
         return ResponseEntity.ok(response);
-=======
-import com.aseuro.pms.dto.AuthResponse;
-import com.aseuro.pms.dto.LoginRequest;
-import com.aseuro.pms.dto.ResetPasswordRequest;
-import com.aseuro.pms.entity.User;
-import com.aseuro.pms.service.AuthService;
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-
-import java.util.Map;
-
-@RestController
-@RequestMapping("/api/auth")
-@RequiredArgsConstructor
-public class AuthController {
-
-    private final AuthService authService;
-
-    @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
-        return ResponseEntity.ok(authService.authenticate(request));
-    }
-
-    @PostMapping("/reset-password")
-    public ResponseEntity<Map<String, String>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
-        authService.resetPassword(request);
-        return ResponseEntity.ok(Map.of("message", "Password changed successfully."));
-    }
-
-    @GetMapping("/me")
-    public ResponseEntity<Map<String, Object>> me(@AuthenticationPrincipal User principal) {
-        return ResponseEntity.ok(Map.of(
-                "id", principal.getId(),
-                "email", principal.getEmail(),
-                "role", principal.getRole().name(),
-                "status", principal.getStatus().name()
-        ));
->>>>>>> 7e242a5ead40c3cafff0fc936fda8630cb8d09d3
     }
 }

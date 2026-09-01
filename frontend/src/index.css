@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 @import "tailwindcss";
 
 @theme {
@@ -12,81 +11,22 @@
   --color-pms-textMuted: #64748B;
 }
 
+:root {
+  --color-pms-green: #6FC04A;
+  --color-pms-gray: #3A3A3A;
+  --color-pms-darkGreen: #4A7637;
+  --color-pms-lightGreen: #EBF7E7;
+  --color-pms-border: #E2E8F0;
+  --color-pms-bg: #F8FAFC;
+  --color-pms-card: #FFFFFF;
+  --color-pms-textMuted: #64748B;
+}
+
 body {
   background-color: var(--color-pms-bg);
   color: var(--color-pms-gray);
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   -webkit-font-smoothing: antialiased;
-}
-
-/* Custom Skeleton Loader animation */
-@keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
-}
-
-.skeleton-shimmer {
-  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-}
-
-/* Premium Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-=======
-:root {
-  font-family: Inter, 'Segoe UI', sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-  color: #0f172a;
-  background: #eef3ee;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-html,
-body,
-#root {
   margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-}
-
-body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-  background: #eef3ee;
-}
-
-button,
-input,
-select {
-  font: inherit;
->>>>>>> 7e242a5ead40c3cafff0fc936fda8630cb8d09d3
+  padding: 0;
 }

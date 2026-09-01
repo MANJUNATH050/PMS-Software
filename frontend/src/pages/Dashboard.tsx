@@ -109,140 +109,25 @@ export const Dashboard: React.FC = () => {
   const completionPct = data.totalKpis > 0 ? Math.round((data.completedKpis / data.totalKpis) * 100) : 0;
   const isSelfAssessmentOpen = data.pmsStatus === 'PMS_STARTED' || data.pmsStatus === 'SELF_ASSESSMENT_DRAFT';
 
-  // Calculate dynamic self-assessment rating from rated KPIs of the current cycle only
-  let calculatedSelfRating = '0.00';
+  // Calculate dynamic self-assessment rating from rated KPIs
+  let calculatedSelfRating: number | null = null;
   if (currentAssignment && currentAssignment.kpis && currentAssignment.kpis.length > 0) {
-    let totalRatedWeight = 0;
+    let totalWeight = 0;
     let weightedSum = 0;
-    let ratedCount = 0;
+    let hasRating = false;
 
     currentAssignment.kpis.forEach((kpi) => {
       if (kpi.selfRating !== null && kpi.selfRating !== undefined) {
-        ratedCount++;
+        hasRating = true;
         weightedSum += kpi.selfRating * kpi.weightage;
-        totalRatedWeight += kpi.weightage;
+        totalWeight += kpi.weightage;
       }
     });
 
-    if (ratedCount > 0 && totalRatedWeight > 0) {
-      calculatedSelfRating = (weightedSum / totalRatedWeight).toFixed(2);
+    if (hasRating && totalWeight > 0) {
+      calculatedSelfRating = weightedSum / totalWeight;
     }
   }
-
-  // Dynamic Current Stage Status Card synchronized with Appraisal Workflow Tracking
-  const getCurrentStageInfo = () => {
-    const status = data.pmsStatus;
-    const completedKpis = data.completedKpis;
-    const totalKpis = data.totalKpis;
-
-    // Stage 1 & 2: Before Self Assessment is submitted
-    if (status === 'PMS_STARTED' || status === 'SELF_ASSESSMENT_DRAFT') {
-      if (completedKpis === 0) {
-        return {
-          title: 'Self Assessment',
-          status: 'Not Started',
-          remarks: 'Waiting to Start Self Assessment'
-        };
-      } else if (completedKpis > 0 && completedKpis < totalKpis) {
-        return {
-          title: 'Self Assessment',
-          status: 'In Progress',
-          remarks: 'Complete your self-assessment'
-        };
-      } else {
-        return {
-          title: 'Self Assessment',
-          status: 'Completed',
-          remarks: 'Awaiting Submission'
-        };
-      }
-    }
-
-    // Stage 3: Self Assessment Submitted / Manager Review Pending
-    if (status === 'SELF_ASSESSMENT_SUBMITTED' || status === 'MANAGER_REVIEW_PENDING') {
-      return {
-        title: 'Manager Review',
-        status: 'Pending',
-        remarks: 'Awaiting Manager Remarks'
-      };
-    }
-
-    // Stage 3 (In Progress): Manager Evaluation in progress
-    if (status === 'MANAGER_REVIEW_IN_PROGRESS') {
-      return {
-        title: 'Manager Review',
-        status: 'In Progress',
-        remarks: 'Manager Evaluation in Progress'
-      };
-    }
-
-    // Stage 4: HR Review (Manager Review completed)
-    if (status === 'MANAGER_REVIEW_SUBMITTED' || status === 'HR_REVIEW_PENDING') {
-      return {
-        title: 'HR Review',
-        status: 'Pending',
-        remarks: 'Awaiting HR Verification'
-      };
-    }
-
-    if (status === 'HR_REVIEW_IN_PROGRESS' || status === 'RATING_AND_POINTS_CALCULATED' || status === 'FINAL_ANALYSIS') {
-      return {
-        title: 'HR Review',
-        status: 'In Progress',
-        remarks: 'Awaiting HR Verification'
-      };
-    }
-
-    // Stage 5: Final Result (HR Review completed / Published / Completed)
-    if (status === 'HR_REVIEW_COMPLETED') {
-      return {
-        title: 'Final Result',
-        status: 'Pending',
-        remarks: 'Awaiting Final Result'
-      };
-    }
-
-    if (status === 'FINAL_RESULT_PUBLISHED' || status === 'COMPLETED') {
-      return {
-        title: 'Final Result',
-        status: 'Completed',
-        remarks: 'PMS Cycle Completed'
-      };
-    }
-
-    return {
-      title: 'Self Assessment',
-      status: 'Not Started',
-      remarks: 'Waiting to Start Self Assessment'
-    };
-  };
-
-  const currentStageInfo = getCurrentStageInfo();
-
-  const isCycleFinalized = data.pmsStatus === 'HR_REVIEW_COMPLETED' ||
-    data.pmsStatus === 'FINAL_RESULT_PUBLISHED' ||
-    data.pmsStatus === 'COMPLETED';
-
-  const latestFinalScoreDisplay = isCycleFinalized && currentAssignment?.overallScore !== null && currentAssignment?.overallScore !== undefined
-    ? `${currentAssignment.overallScore.toFixed(2)} / 5.00`
-    : isCycleFinalized && data.latestFinalizedScore !== null
-      ? `${data.latestFinalizedScore.toFixed(2)} / 5.00`
-      : '0.00 / 5.00';
-
-  const latestFinalGradeDisplay = isCycleFinalized
-    ? (currentAssignment?.performanceGrade || data.latestFinalizedGrade || 'Completed')
-    : 'Pending HR Finalization';
-
-  const formatDeadline = (deadlineStr?: string) => {
-    if (!deadlineStr) return '10 Sept 2026';
-    try {
-      const d = new Date(deadlineStr);
-      if (isNaN(d.getTime())) return deadlineStr;
-      return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-    } catch {
-      return deadlineStr;
-    }
-  };
 
   return (
     <div className="space-y-8 animate-fadeIn">
@@ -260,22 +145,16 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* Action Banner if action needed */}
-      {isSelfAssessmentOpen ? (
+      {isSelfAssessmentOpen && (
         <div className="bg-pms-lightGreen border border-pms-green/20 rounded-xl p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm">
           <div className="flex items-center space-x-4">
             <div className="p-3 bg-white rounded-lg text-pms-green border border-pms-green/10 shadow-sm shrink-0">
               <TrendingUp size={24} />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-pms-darkGreen">
-                {data.completedKpis === data.totalKpis && data.totalKpis > 0
-                  ? 'Action Required: Submit Self-Assessment'
-                  : 'Action Required: Self-Assessment Pending'}
-              </h4>
+              <h4 className="text-sm font-bold text-pms-darkGreen">Action Required: Self-Assessment Pending</h4>
               <p className="text-xs text-slate-600 mt-0.5">
-                {data.completedKpis === data.totalKpis && data.totalKpis > 0
-                  ? `You have completed ${data.completedKpis} of ${data.totalKpis} assigned KPIs. Please submit before the deadline.`
-                  : `You have completed ${data.completedKpis} of ${data.totalKpis} assigned KPIs. Please complete and submit before the deadline.`}
+                You have completed {data.completedKpis} of your {data.totalKpis} assigned KPIs ({completionPct}%). Please submit before the deadline.
               </p>
             </div>
           </div>
@@ -283,33 +162,15 @@ export const Dashboard: React.FC = () => {
             onClick={() => navigate('/kpis')}
             className="flex items-center space-x-2 px-4 py-2.5 bg-pms-green hover:bg-pms-darkGreen text-white text-xs font-semibold rounded-lg shadow-md hover:shadow-lg transition-all shrink-0"
           >
-            <span>
-              {data.completedKpis === 0
-                ? 'Start Assessment'
-                : data.completedKpis === data.totalKpis
-                  ? 'Submit Assessment'
-                  : 'Continue Assessment'}
-            </span>
+            <span>Start Assessment</span>
             <ArrowRight size={14} />
           </button>
         </div>
-      ) : (data.pmsStatus === 'SELF_ASSESSMENT_SUBMITTED' || data.pmsStatus === 'MANAGER_REVIEW_PENDING') ? (
-        <div className="bg-blue-50 border border-blue-200/60 rounded-xl p-5 flex items-center space-x-4 shadow-sm">
-          <div className="p-3 bg-white rounded-lg text-blue-600 border border-blue-100 shadow-sm shrink-0">
-            <CheckCircle size={24} />
-          </div>
-          <div>
-            <h4 className="text-sm font-bold text-blue-900">Self-Assessment Submitted</h4>
-            <p className="text-xs text-blue-700 mt-0.5">
-              Your self-assessment has been submitted and is awaiting manager review.
-            </p>
-          </div>
-        </div>
-      ) : null}
+      )}
 
       {/* Dashboard Card Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-
+        
         {/* Card 1: Active Cycle */}
         <div className="bg-white p-6 rounded-xl border border-slate-200/60 shadow-sm flex items-start space-x-4">
           <div className="p-3 bg-slate-50 rounded-lg text-pms-gray border border-slate-100 shadow-inner">
@@ -330,7 +191,7 @@ export const Dashboard: React.FC = () => {
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Self Assessment</p>
             <h3 className="text-lg font-bold text-pms-gray mt-1">
-              {calculatedSelfRating} / 5.00
+              {calculatedSelfRating !== null ? `${calculatedSelfRating.toFixed(2)} / 5.00` : 'Pending'}
             </h3>
             <p className="text-[11px] text-slate-500 font-medium mt-0.5 truncate">
               {data.completedKpis} / {data.totalKpis} KPIs Rated
@@ -338,15 +199,15 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Card 3: Current Workflow Stage Status */}
+        {/* Card 3: Manager Review Status */}
         <div className="bg-white p-6 rounded-xl border border-slate-200/60 shadow-sm flex items-start space-x-4">
           <div className="p-3 bg-slate-50 rounded-lg text-pms-gray border border-slate-100 shadow-inner">
             <FileCheck size={20} />
           </div>
           <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{currentStageInfo.title}</p>
-            <h3 className="text-lg font-bold text-pms-gray mt-1">{currentStageInfo.status}</h3>
-            <p className="text-[11px] text-slate-500 font-medium mt-0.5">{currentStageInfo.remarks}</p>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Manager Review</p>
+            <h3 className="text-lg font-bold text-pms-gray mt-1">{data.managerReviewStatus}</h3>
+            <p className="text-[11px] text-slate-500 font-medium mt-0.5">Awaiting Manager Remarks</p>
           </div>
         </div>
 
@@ -358,10 +219,10 @@ export const Dashboard: React.FC = () => {
           <div>
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Latest Finalized Score</p>
             <h3 className="text-lg font-bold text-pms-gray mt-1">
-              {latestFinalScoreDisplay}
+              {data.latestFinalizedScore !== null ? `${data.latestFinalizedScore.toFixed(2)} / 5.00` : 'N/A'}
             </h3>
             <p className="text-[11px] text-slate-500 font-medium mt-0.5 truncate">
-              {latestFinalGradeDisplay}
+              {data.latestFinalizedGrade || 'No finalized grades yet'}
             </p>
           </div>
         </div>
@@ -375,15 +236,9 @@ export const Dashboard: React.FC = () => {
             <h3 className="text-base font-bold text-pms-gray">Appraisal Workflow Tracking</h3>
             <p className="text-xs text-slate-400 mt-0.5">Current cycle progression checkpoint</p>
           </div>
-          {isSelfAssessmentOpen ? (
-            <span className="inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200/80 shadow-xs self-start sm:self-auto">
-              Deadline: {formatDeadline(currentAssignment?.submissionDeadline)}
-            </span>
-          ) : (
-            <span className="inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 shadow-xs self-start sm:self-auto">
-              Self-Assessment Submitted
-            </span>
-          )}
+          <span className="inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200/80 shadow-xs self-start sm:self-auto">
+            Deadline: 10 Sept 2026
+          </span>
         </div>
         <Timeline status={data.pmsStatus} />
       </div>
@@ -399,7 +254,7 @@ export const Dashboard: React.FC = () => {
           <div className="p-4 bg-slate-50 rounded-lg border border-slate-100">
             <h4 className="text-xs font-bold text-pms-gray uppercase tracking-wider">Weighted KPIs</h4>
             <p className="text-xs text-slate-500 mt-2">
-              Your self-assessment progress accounts for <strong className="text-pms-darkGreen font-semibold">{data.completedWeightage}%</strong> of your total KPI weights. {data.completedWeightage < 100 ? 'Complete ratings to reach 100%.' : 'All assigned KPI weights completed.'}
+              Your self-assessment progress accounts for <strong className="text-pms-darkGreen font-semibold">{data.completedWeightage}%</strong> of your total KPI weights. Complete ratings to reach 100%.
             </p>
           </div>
           <div className="p-4 bg-slate-50 rounded-lg border border-slate-100 flex flex-col justify-between">

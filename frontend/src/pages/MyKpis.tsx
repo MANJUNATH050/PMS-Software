@@ -209,17 +209,6 @@ export const MyKpis: React.FC = () => {
     }
   };
 
-  const formatDeadline = (deadlineStr?: string) => {
-    if (!deadlineStr) return '10 Sept 2026';
-    try {
-      const d = new Date(deadlineStr);
-      if (isNaN(d.getTime())) return deadlineStr;
-      return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-    } catch {
-      return deadlineStr;
-    }
-  };
-
   return (
     <div className="space-y-6 animate-fadeIn">
       
@@ -232,7 +221,7 @@ export const MyKpis: React.FC = () => {
           </div>
           <p className="text-xs text-slate-500 mt-2">
             PMS Appraisal Cycle: <span className="font-semibold text-pms-gray">{assignment.cycleMonth}</span> | 
-            Deadline: <span className="font-semibold text-rose-600">{formatDeadline(assignment.submissionDeadline)}</span>
+            Deadline: <span className="font-semibold text-rose-600">{assignment.submissionDeadline}</span>
           </p>
         </div>
 

@@ -1,8 +1,9 @@
 import React, { useEffect, useState, type FormEvent } from 'react';
 import type { AuthUser } from '../types';
 import aseuroLogo from '../assets/aseuro-logo.png';
+import { getApiUrl } from '../api/apiClient';
 
-interface LoginPageProps { onLoginSuccess: (user: AuthUser) => void; }
+interface LoginPageProps { onLoginSuccess?: (user: AuthUser) => void; }
 type Notice = { type: 'error' | 'success'; message: string };
 const criteria = 'Password should contain minimum 8 characters with alphabets, numbers and special characters.';
 const lockoutStorageKey = 'pms_login_lock_until';
@@ -61,7 +62,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     if (!email.trim()) return inform('error', 'Email is not found.');
     setLoading(true);
     try {
-      const response = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email.trim(), password }) });
+      const response = await fetch(getApiUrl('/auth/login'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email.trim(), identifier: email.trim(), password }) });
       const data = await response.json().catch(() => null);
       if (!response.ok) {
         // Only the backend may lock an account. The UI displays its persisted expiry.
@@ -69,7 +70,21 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         throw new Error(data?.message || 'Login failed.');
       }
       applyLock(null);
-      onLoginSuccess({ token: data.token, email: data.email, role: data.role, fullName: data.fullName || data.email.split('@')[0], employeeCode: data.employeeCode || 'EMP' });
+      localStorage.setItem('pms_token', data.token);
+      localStorage.setItem('pms_access_token', data.token);
+      localStorage.setItem('pms_user', JSON.stringify(data));
+      if (onLoginSuccess) {
+        onLoginSuccess({ token: data.token, email: data.email, role: data.role, fullName: data.fullName || data.email.split('@')[0], employeeCode: data.employeeCode || 'EMP' });
+      } else {
+        const role = (data.role || '').toUpperCase();
+        if (role === 'ROLE_HR' || role === 'HR') {
+          window.location.href = '/hr/dashboard';
+        } else if (role === 'ROLE_MANAGER' || role === 'MANAGER') {
+          window.location.href = '/manager/dashboard';
+        } else {
+          window.location.href = '/dashboard';
+        }
+      }
     } catch (error) { inform('error', error instanceof Error ? error.message : 'Login failed.'); } finally { setLoading(false); }
   };
 
@@ -80,7 +95,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     if (newPassword !== confirmPassword) return inform('error', 'New password and confirm password must match.');
     setLoading(true);
     try {
-      const response = await fetch('/api/auth/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email.trim(), newPassword }) });
+      const response = await fetch(getApiUrl('/api/auth/reset-password'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email.trim(), newPassword }) });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.message || 'Unable to change password.');
       setPassword(''); setNewPassword(''); setConfirmPassword('');

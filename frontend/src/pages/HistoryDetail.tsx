@@ -274,7 +274,7 @@ export const HistoryDetail: React.FC = () => {
                   <td className="px-6 py-5 text-center font-semibold text-pms-green">{kpi.hrRating !== null ? kpi.hrRating.toFixed(1) : 'N/A'}</td>
                   <td className="px-6 py-5 text-center">
                     <span className="font-bold text-pms-gray bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
-                      {kpi.hrRating !== null ? kpi.hrRating.toFixed(1) : 'N/A'}
+                      {kpi.hrRating !== null ? kpi.hrRating.toFixed(1) : (kpi.managerRating !== null ? kpi.managerRating.toFixed(1) : (kpi.selfRating !== null ? kpi.selfRating.toFixed(1) : 'N/A'))}
                     </span>
                   </td>
                 </tr>
@@ -282,6 +282,98 @@ export const HistoryDetail: React.FC = () => {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* HR Review KPI Evaluation Section */}
+      <div className="bg-white border border-slate-200/60 rounded-xl overflow-hidden shadow-sm">
+        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h3 className="text-sm font-bold text-pms-gray">HR Review KPIs</h3>
+            <p className="text-xs text-slate-500 mt-0.5">HR Review KPI Evaluation — Corporate Staff</p>
+          </div>
+          <span className="text-[11px] font-bold text-pms-darkGreen bg-pms-lightGreen/60 border border-pms-green/20 px-3 py-1 rounded-full uppercase tracking-wider self-start sm:self-auto">
+            Evaluated by HR Administration
+          </span>
+        </div>
+
+        {(!assignment.hrReviewKpis || assignment.hrReviewKpis.length === 0) ? (
+          <div className="p-8 text-center text-slate-400">
+            <AlertCircle size={32} className="mx-auto mb-2 text-slate-300" />
+            <p className="text-sm font-semibold text-slate-600">
+              {assignment.status === 'COMPLETED' || assignment.status === 'FINAL_RESULT_PUBLISHED'
+                ? 'HR review KPIs are not available for this appraisal cycle.'
+                : 'HR review is currently in progress.'}
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-150">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider min-w-[200px]">
+                    HR REVIEW KPI
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider min-w-[320px]">
+                    MEASUREMENT CRITERIA
+                  </th>
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider w-24">
+                    WEIGHT
+                  </th>
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider w-28">
+                    HR RATING
+                  </th>
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider w-32">
+                    STATUS
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-slate-100 text-xs">
+                {assignment.hrReviewKpis.map((hrKpi) => {
+                  const isFinal = hrKpi.ratingStatus === 'FINALIZED' || assignment.status === 'COMPLETED' || assignment.status === 'FINAL_RESULT_PUBLISHED';
+                  const isProgress = !isFinal && (hrKpi.ratingStatus === 'IN_PROGRESS' || assignment.status === 'HR_REVIEW_PENDING' || assignment.status === 'HR_REVIEW_COMPLETED');
+
+                  return (
+                    <tr key={hrKpi.kpiId} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-6 py-5 align-top">
+                        <p className="font-bold text-pms-gray text-sm">{hrKpi.kpiName}</p>
+                      </td>
+                      <td className="px-6 py-5 align-top">
+                        <p className="text-slate-600 leading-relaxed">{hrKpi.description}</p>
+                      </td>
+                      <td className="px-6 py-5 text-center font-bold text-pms-gray align-top">
+                        {hrKpi.weightage}%
+                      </td>
+                      <td className="px-6 py-5 text-center align-top">
+                        {hrKpi.hrRating !== null ? (
+                          <span className="font-black text-pms-darkGreen text-sm">
+                            {hrKpi.hrRating.toFixed(1)}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 font-medium">Pending</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-5 text-center align-top">
+                        {isFinal ? (
+                          <span className="inline-flex items-center space-x-1 px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200/60 uppercase tracking-wider">
+                            <span>FINALIZED</span>
+                          </span>
+                        ) : isProgress ? (
+                          <span className="inline-flex items-center space-x-1 px-3 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200/60 uppercase tracking-wider">
+                            <span>IN PROGRESS</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center space-x-1 px-3 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-200/60 uppercase tracking-wider">
+                            <span>NOT YET EVALUATED</span>
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Review Remarks list */}

@@ -27,7 +27,7 @@ test.describe('UI/UX Dynamic State Refinements & Workflow Lifecycle', () => {
       });
     }
 
-    await page.goto('http://localhost:5173/login');
+    await page.goto('/login');
     await page.fill('#email', 'employee@aseuro.com');
     await page.fill('#password', 'password');
     await page.click('button[type="submit"]');

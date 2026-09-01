@@ -45,6 +45,9 @@ public class PmsServiceTest {
     @Mock
     private PmsHistoryRepository pmsHistoryRepository;
 
+    @Mock
+    private KpiMasterRepository kpiMasterRepository;
+
     @InjectMocks
     private PmsService pmsService;
 
