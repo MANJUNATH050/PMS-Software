@@ -7,7 +7,6 @@ C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms
 C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms\controller\ManagerController.java
 C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms\controller\PmsController.java
 C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms\controller\ReportController.java
-C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms\controller\RootController.java
 C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms\dto\AuthResponse.java
 C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms\dto\CreateEmployeeRequest.java
 C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms\dto\CreateKpiMasterRequest.java
@@ -51,6 +50,7 @@ C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms
 C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms\model\EmployeeReview.java
 C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms\model\FinalPmsResult.java
 C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms\model\KpiMaster.java
+C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms\model\PasswordResetToken.java
 C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms\model\PmsAssignment.java
 C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms\model\PmsHistory.java
 C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms\model\PmsKpi.java
@@ -66,6 +66,7 @@ C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms
 C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms\repository\FinalPmsResultRepository.java
 C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms\repository\HrEmployeeRepository.java
 C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms\repository\KpiMasterRepository.java
+C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms\repository\PasswordResetTokenRepository.java
 C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms\repository\PmsAssignmentRepository.java
 C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms\repository\PmsHistoryRepository.java
 C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms\repository\PmsKpiRepository.java
@@ -77,9 +78,12 @@ C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms
 C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms\security\JwtTokenProvider.java
 C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms\security\UserPrincipal.java
 C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms\service\AuthService.java
+C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms\service\DesignationService.java
 C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms\service\EmployeeService.java
 C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms\service\HrKpiService.java
 C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms\service\HrLifecycleService.java
+C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms\service\MailService.java
 C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms\service\ManagerService.java
+C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms\service\PmsScoreCalculatorService.java
 C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms\service\PmsService.java
 C:\Users\MusturuManjunath\Videos\PMS-ASEURO\backend\src\main\java\com\aseuro\pms\service\ReportService.java

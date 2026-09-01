@@ -29,7 +29,21 @@ public class EmployeeKpiRating {
     private Double hrRating; // 0.0 to 5.0
 
     @Column(columnDefinition = "TEXT")
-    private String comments;
+    private String comments; // Employee self-assessment comment
+
+    @Column(name = "manager_comment", columnDefinition = "TEXT")
+    private String managerComment;
+
+    @Column(name = "hr_comment", columnDefinition = "TEXT")
+    private String hrComment;
 
     private String status; // "DRAFT", "SUBMITTED"
+
+    public String getEmployeeComment() {
+        return comments;
+    }
+
+    public void setEmployeeComment(String employeeComment) {
+        this.comments = employeeComment;
+    }
 }

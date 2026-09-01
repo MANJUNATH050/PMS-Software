@@ -23,6 +23,8 @@ import {
   RotateCcw,
   MessageSquare
 } from 'lucide-react';
+import { RatingScaleLegend } from '../../components/RatingScaleLegend';
+import { KpiRatingChart } from '../../components/KpiRatingChart';
 
 export const ManagerMyKpisPage: React.FC = () => {
   const [assignment, setAssignment] = useState<PmsAssignment | null>(null);
@@ -332,6 +334,23 @@ export const ManagerMyKpisPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <RatingScaleLegend className="my-3" />
+
+      {assignment?.kpis && assignment.kpis.length > 0 && (
+        <KpiRatingChart
+          title="My Manager KPI Self Evaluation Breakdown"
+          items={assignment.kpis.map(k => ({
+            kpiName: k.kpiName,
+            weightage: k.weightage,
+            selfRating: ratings[k.kpiId]?.rating !== undefined && ratings[k.kpiId]?.rating !== ''
+              ? Number(ratings[k.kpiId].rating)
+              : k.selfRating,
+            managerRating: k.managerRating,
+            hrRating: k.hrRating
+          }))}
+        />
+      )}
 
       {/* Success / Error Messages */}
       {successMessage && (

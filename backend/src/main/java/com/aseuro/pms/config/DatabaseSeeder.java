@@ -78,8 +78,11 @@ public class DatabaseSeeder implements CommandLineRunner {
                                 }
                         });
 
-                        // Ensure Manager user has active August 2026 assignment
+                        // Ensure Manager user has active August 2026 assignment & known password Manager@12345
                         employeeRepository.findByEmail("manager@aseuro.com").ifPresent(mgr -> {
+                                mgr.setPassword(passwordEncoder.encode("Manager@12345"));
+                                employeeRepository.save(mgr);
+
                                 List<PmsAssignment> mgrAssignments = pmsAssignmentRepository.findByEmployee(mgr);
                                 boolean hasAug2026 = mgrAssignments.stream()
                                                 .anyMatch(a -> "August 2026".equals(a.getCycleMonth()));
@@ -88,8 +91,10 @@ public class DatabaseSeeder implements CommandLineRunner {
                                 }
                         });
 
-                        // Ensure August 2026 assignment is in fresh draft state for self-assessment testing
+                        // Ensure August 2026 assignment is in fresh draft state for self-assessment testing & password Emp@12345
                         employeeRepository.findByEmail("employee@aseuro.com").ifPresent(emp -> {
+                                emp.setPassword(passwordEncoder.encode("Emp@12345"));
+                                employeeRepository.save(emp);
                                 Employee mgr = employeeRepository.findByEmail("manager@aseuro.com").orElse(null);
                                 Employee hrUser = employeeRepository.findByEmail("hr@aseuro.com").orElse(null);
                                 syncEmployeeHistoricalAssignments(emp, mgr, hrUser);

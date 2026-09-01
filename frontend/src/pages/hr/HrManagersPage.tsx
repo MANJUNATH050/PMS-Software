@@ -10,12 +10,7 @@ import {
   CheckCircle2,
   AlertCircle,
   X,
-  Mail,
-  Lock,
-  User,
-  Hash,
-  Shield,
-  Briefcase
+  Edit2
 } from 'lucide-react';
 
 export const HrManagersPage: React.FC = () => {
@@ -26,7 +21,7 @@ export const HrManagersPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // Modal State
+  // Add Manager Modal State
   const [modalOpen, setModalOpen] = useState(false);
   const [name, setName] = useState('');
   const [managerCode, setManagerCode] = useState('');
@@ -34,8 +29,19 @@ export const HrManagersPage: React.FC = () => {
   const [password, setPassword] = useState('Password@123');
   const [designation, setDesignation] = useState('Engineering Manager');
   const [department, setDepartment] = useState('Engineering');
+  const [reportingManagerId, setReportingManagerId] = useState<number | ''>('');
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Edit Manager Modal State
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingManager, setEditingManager] = useState<ManagerOption | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editDesignation, setEditDesignation] = useState('');
+  const [editDepartment, setEditDepartment] = useState('');
+  const [editReportingManagerId, setEditReportingManagerId] = useState<number | ''>('');
+  const [editFormError, setEditFormError] = useState<string | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
 
   const fetchManagers = () => {
     setLoading(true);
@@ -73,7 +79,8 @@ export const HrManagersPage: React.FC = () => {
         email: email.trim().toLowerCase(),
         password,
         designation: designation.trim(),
-        department: department.trim()
+        department: department.trim(),
+        reportingManagerId: reportingManagerId ? Number(reportingManagerId) : null
       });
 
       setSuccess(`Manager "${name}" (${email}) created successfully! Now available in reporting manager assignments.`);
@@ -82,6 +89,7 @@ export const HrManagersPage: React.FC = () => {
       setManagerCode('');
       setEmail('');
       setPassword('Password@123');
+      setReportingManagerId('');
       fetchManagers();
       setTimeout(() => setSuccess(null), 4000);
     } catch (err: any) {
@@ -92,13 +100,52 @@ export const HrManagersPage: React.FC = () => {
     }
   };
 
+  const openEditModal = (mgr: ManagerOption) => {
+    setEditingManager(mgr);
+    setEditName(mgr.fullName);
+    setEditDesignation(mgr.designationName || 'Engineering Manager');
+    setEditDepartment('Engineering');
+    setEditReportingManagerId(mgr.reportingManagerId || '');
+    setEditFormError(null);
+    setEditModalOpen(true);
+  };
+
+  const handleUpdateManager = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingManager) return;
+
+    setEditFormError(null);
+    setEditSaving(true);
+
+    try {
+      await hrApi.updateManager(editingManager.id, {
+        name: editName.trim(),
+        designation: editDesignation.trim(),
+        department: editDepartment.trim(),
+        reportingManagerId: editReportingManagerId ? Number(editReportingManagerId) : null
+      });
+
+      setSuccess(`Manager "${editName}" updated successfully!`);
+      setEditModalOpen(false);
+      setEditingManager(null);
+      fetchManagers();
+      setTimeout(() => setSuccess(null), 4000);
+    } catch (err: any) {
+      console.error(err);
+      setEditFormError(err?.response?.data?.message || err?.message || 'Failed to update manager.');
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
   const filtered = managers.filter((m) => {
     const q = searchTerm.toLowerCase();
     return (
       (m.fullName || '').toLowerCase().includes(q) ||
       (m.email || '').toLowerCase().includes(q) ||
       (m.employeeCode || '').toLowerCase().includes(q) ||
-      (m.designationName || '').toLowerCase().includes(q)
+      (m.designationName || '').toLowerCase().includes(q) ||
+      (m.reportingManagerName || '').toLowerCase().includes(q)
     );
   });
 
@@ -123,6 +170,7 @@ export const HrManagersPage: React.FC = () => {
           <button
             onClick={() => {
               setFormError(null);
+              setReportingManagerId('');
               setModalOpen(true);
             }}
             className="flex items-center space-x-2 px-4 py-2.5 bg-pms-green hover:bg-pms-darkGreen text-white text-xs font-bold rounded-xl shadow-sm hover:shadow-md transition-all"
@@ -155,7 +203,7 @@ export const HrManagersPage: React.FC = () => {
           </div>
           <input
             type="text"
-            placeholder="Search managers by name, email, manager code..."
+            placeholder="Search managers by name, email, manager code, reporting manager..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="block w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-xs text-pms-gray focus:ring-2 focus:ring-pms-green/50 focus:border-pms-green"
@@ -180,8 +228,10 @@ export const HrManagersPage: React.FC = () => {
                   <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Manager Name</th>
                   <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Work Email</th>
                   <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Designation</th>
+                  <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Reporting Manager</th>
                   <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Role</th>
                   <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase text-center">Status</th>
+                  <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase text-center">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
@@ -204,6 +254,15 @@ export const HrManagersPage: React.FC = () => {
                     <td className="px-5 py-4 whitespace-nowrap text-xs text-slate-700 font-medium">
                       {mgr.designationName || 'Engineering Manager'}
                     </td>
+                    <td className="px-5 py-4 whitespace-nowrap text-xs text-slate-700 font-semibold">
+                      {mgr.reportingManagerName ? (
+                        <span className="text-purple-800 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200">
+                          {mgr.reportingManagerName}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 italic">No Reporting Manager</span>
+                      )}
+                    </td>
                     <td className="px-5 py-4 whitespace-nowrap">
                       <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
                         MANAGER
@@ -213,6 +272,15 @@ export const HrManagersPage: React.FC = () => {
                       <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-pms-lightGreen text-pms-darkGreen border border-pms-green/20">
                         ACTIVE
                       </span>
+                    </td>
+                    <td className="px-5 py-4 whitespace-nowrap text-center">
+                      <button
+                        onClick={() => openEditModal(mgr)}
+                        className="inline-flex items-center space-x-1 px-2.5 py-1 text-xs font-bold text-purple-600 hover:bg-purple-50 rounded-lg transition-colors border border-purple-200"
+                      >
+                        <Edit2 size={13} />
+                        <span>Edit</span>
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -330,6 +398,25 @@ export const HrManagersPage: React.FC = () => {
                 </div>
               </div>
 
+              {/* Reporting Manager Dropdown */}
+              <div>
+                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">
+                  Reporting Manager
+                </label>
+                <select
+                  value={reportingManagerId}
+                  onChange={(e) => setReportingManagerId(e.target.value ? Number(e.target.value) : '')}
+                  className="block w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-pms-gray focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 bg-white"
+                >
+                  <option value="">Select Reporting Manager (No Reporting Manager)</option>
+                  {managers.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.fullName} ({m.employeeCode || `MGR-${m.id}`})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="pt-3 border-t border-slate-100 flex justify-end space-x-2">
                 <button
                   type="button"
@@ -344,6 +431,124 @@ export const HrManagersPage: React.FC = () => {
                   className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all disabled:opacity-50"
                 >
                   {saving ? 'Creating...' : 'Save Manager'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Manager Modal */}
+      {editModalOpen && editingManager && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 space-y-5 animate-scaleUp">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center space-x-2">
+                <Edit2 size={20} className="text-purple-600" />
+                <h3 className="text-base font-bold text-pms-gray">Edit Manager Hierarchy</h3>
+              </div>
+              <button
+                onClick={() => setEditModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {editFormError && (
+              <div className="bg-rose-50 border-l-4 border-rose-500 p-3 rounded-lg text-xs text-rose-800 font-semibold flex items-start space-x-2">
+                <AlertCircle size={16} className="shrink-0 text-rose-600 mt-0.5" />
+                <span>{editFormError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleUpdateManager} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">
+                  Manager Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="block w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-pms-gray focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">
+                  Corporate Email
+                </label>
+                <input
+                  type="email"
+                  disabled
+                  value={editingManager.email}
+                  className="block w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-500 bg-slate-50 cursor-not-allowed"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">
+                    Designation
+                  </label>
+                  <input
+                    type="text"
+                    value={editDesignation}
+                    onChange={(e) => setEditDesignation(e.target.value)}
+                    className="block w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-pms-gray focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">
+                    Department
+                  </label>
+                  <input
+                    type="text"
+                    value={editDepartment}
+                    onChange={(e) => setEditDepartment(e.target.value)}
+                    className="block w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-pms-gray focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500"
+                  />
+                </div>
+              </div>
+
+              {/* Reporting Manager Dropdown (Exclude current manager) */}
+              <div>
+                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">
+                  Reporting Manager
+                </label>
+                <select
+                  value={editReportingManagerId}
+                  onChange={(e) => setEditReportingManagerId(e.target.value ? Number(e.target.value) : '')}
+                  className="block w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-pms-gray focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 bg-white"
+                >
+                  <option value="">Select Reporting Manager (No Reporting Manager)</option>
+                  {managers
+                    .filter((m) => m.id !== editingManager.id)
+                    .map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.fullName} ({m.employeeCode || `MGR-${m.id}`})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setEditModalOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editSaving}
+                  className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all disabled:opacity-50"
+                >
+                  {editSaving ? 'Updating...' : 'Update Manager'}
                 </button>
               </div>
             </form>

@@ -39,5 +39,27 @@ export const managerApi = {
       responseType: 'blob'
     });
     return response.data;
+  },
+
+  getEmployeeFullReport: async (employeeId: number): Promise<any> => {
+    const response = await apiClient.get<any>(`/api/manager/employees/${employeeId}/full-report`);
+    return response.data;
+  },
+
+  downloadManagerReport: async (assignmentId: number, employeeName: string, format: 'pdf' | 'excel' = 'pdf'): Promise<void> => {
+    const response = await apiClient.get('/api/manager/reports/download', {
+      params: { assignmentId, format },
+      responseType: 'blob'
+    });
+    const blob = new Blob([response.data], {
+      type: format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    });
+    const link = document.createElement('a');
+    link.href = window.URL.createObjectURL(blob);
+    link.download = `PMS_Report_${employeeName.replace(/ /g, '_')}_${assignmentId}.${format}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(link.href);
   }
 };

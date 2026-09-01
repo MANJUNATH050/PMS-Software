@@ -5,5 +5,11 @@ public record ManagerOptionDto(
         String fullName,
         String employeeCode,
         String email,
-        String designationName
-) {}
+        String designationName,
+        Long reportingManagerId,
+        String reportingManagerName
+) {
+    public ManagerOptionDto(Long id, String fullName, String employeeCode, String email, String designationName) {
+        this(id, fullName, employeeCode, email, designationName, null, null);
+    }
+}

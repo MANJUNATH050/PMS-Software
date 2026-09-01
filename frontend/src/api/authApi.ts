@@ -1,32 +1,30 @@
-import apiClient from './apiClient';
-import { User } from '../types';
+import { apiClient } from '../api/apiClient';
 
-export interface LoginCredentials {
+export const authApi = {
+  login: async (credentials: { email: string; password: string; role?: string }) => {
+    const { data } = await apiClient.post('/auth/login', credentials);
+    return data;
+  },
+  forgotPassword: async (email: string) => {
+    const { data } = await apiClient.post('/auth/forgot-password', { email });
+    return data;
+  },
+  resetPassword: async (payload: { token?: string; email?: string; newPassword: string; confirmPassword: string }) => {
+    const { data } = await apiClient.post('/auth/reset-password', payload);
+    return data;
+  },
+  lockStatus: async (email: string) => {
+    const { data } = await apiClient.get('/auth/lock-status', { params: { email } });
+    return data;
+  },
+  getLockStatus: async (email: string) => {
+    const { data } = await apiClient.get('/auth/lock-status', { params: { email } });
+    return data;
+  },
+};
+
+export type LoginCredentials = {
   email: string;
   password: string;
   role?: string;
-}
-
-export interface LockStatusResponse {
-  locked: boolean;
-  lockedUntil?: string;
-  remainingSeconds?: number;
-  message?: string;
-}
-
-export const authApi = {
-  login: async (credentials: LoginCredentials): Promise<User> => {
-    const response = await apiClient.post<User>('/auth/login', credentials);
-    return response.data;
-  },
-  getLockStatus: async (email: string): Promise<LockStatusResponse> => {
-    const response = await apiClient.get<LockStatusResponse>('/auth/lock-status', {
-      params: { email }
-    });
-    return response.data;
-  },
-  forgotPassword: async (email: string): Promise<{ message: string }> => {
-    const response = await apiClient.post<{ message: string }>('/auth/forgot-password', { email });
-    return response.data;
-  }
 };

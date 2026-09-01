@@ -13,7 +13,9 @@ import {
   UserPlus,
   Users,
   UserCheck,
-  RefreshCw
+  RefreshCw,
+  BarChart3,
+  ClipboardList
 } from 'lucide-react';
 
 interface SidebarItemProps {
@@ -63,7 +65,8 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
     { name: 'Dashboard', href: '/manager/dashboard', icon: <LayoutDashboard size={20} /> },
     { name: 'View My KPIs', href: '/manager/my-kpis', icon: <Target size={20} /> },
     { name: 'View New Employees Assigned', href: '/manager/employees', icon: <Users size={20} /> },
-    { name: 'Reports', href: '/manager/reports', icon: <FileText size={20} /> },
+    { name: 'Manager Reports', href: '/manager/reports', icon: <BarChart3 size={20} /> },
+    { name: 'Employee Reports', href: '/manager/employee-reports', icon: <ClipboardList size={20} /> },
   ];
 
   const hrNavigation = [

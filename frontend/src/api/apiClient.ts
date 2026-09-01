@@ -1,22 +1,23 @@
-export const getApiUrl = (url: string): string => {
-  if (url.startsWith('http://') || url.startsWith('https://')) {
-    return url;
+const getBaseUrl = (): string => {
+  let envUrl = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '');
+  if (envUrl.endsWith('/api')) {
+    envUrl = envUrl.slice(0, -4);
   }
-  const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
-  if (!API_BASE_URL) return url;
-
-  let cleanBase = API_BASE_URL;
-  let cleanUrl = url.startsWith('/') ? url : `/${url}`;
-
-  if (cleanBase.endsWith('/api') && cleanUrl.startsWith('/api/')) {
-    cleanUrl = cleanUrl.substring(4);
-  }
-
-  return `${cleanBase}${cleanUrl}`;
+  return envUrl;
 };
 
-export const getAuthHeaders = (): Record<string, string> => {
-  const token = localStorage.getItem('pms_token') || localStorage.getItem('pms_access_token');
+const buildUrl = (path: string): string => {
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path;
+  }
+  const baseUrl = getBaseUrl();
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const apiPath = normalizedPath.startsWith('/api/') ? normalizedPath : `/api${normalizedPath}`;
+  return `${baseUrl}${apiPath}`;
+};
+
+const getAuthHeaders = (): Record<string, string> => {
+  const token = localStorage.getItem('pms_token');
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
@@ -26,26 +27,14 @@ export const getAuthHeaders = (): Record<string, string> => {
   return headers;
 };
 
-const handleResponse = async (res: Response, responseType?: string) => {
+const handleResponse = async (res: Response) => {
   if (res.status === 401) {
     localStorage.removeItem('pms_token');
-    localStorage.removeItem('pms_access_token');
     localStorage.removeItem('pms_user');
     if (window.location.pathname !== '/login') {
       window.location.href = '/session-expired';
     }
   }
-
-  if (responseType === 'blob') {
-    if (!res.ok) {
-      const error: any = new Error(`Request failed with status ${res.status}`);
-      error.response = { status: res.status, data: null };
-      throw error;
-    }
-    const blob = await res.blob();
-    return { data: blob, status: res.status };
-  }
-
   const data = await res.json().catch(() => null);
   if (!res.ok) {
     const error: any = new Error(data?.message || `Request failed with status ${res.status}`);
@@ -56,11 +45,8 @@ const handleResponse = async (res: Response, responseType?: string) => {
 };
 
 export const apiClient = {
-  get: async <T = any>(
-    url: string,
-    config?: { params?: Record<string, any>; responseType?: 'json' | 'blob' }
-  ): Promise<{ data: T; status: number }> => {
-    let fullUrl = getApiUrl(url);
+  get: async <T = any>(url: string, config?: { params?: Record<string, any> }): Promise<{ data: T; status: number }> => {
+    let fullUrl = buildUrl(url);
     if (config?.params) {
       const searchParams = new URLSearchParams();
       Object.entries(config.params).forEach(([k, v]) => {
@@ -73,11 +59,11 @@ export const apiClient = {
       method: 'GET',
       headers: getAuthHeaders(),
     });
-    return handleResponse(res, config?.responseType);
+    return handleResponse(res);
   },
 
   post: async <T = any>(url: string, body?: any): Promise<{ data: T; status: number }> => {
-    const res = await fetch(getApiUrl(url), {
+    const res = await fetch(buildUrl(url), {
       method: 'POST',
       headers: getAuthHeaders(),
       body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -86,7 +72,7 @@ export const apiClient = {
   },
 
   put: async <T = any>(url: string, body?: any): Promise<{ data: T; status: number }> => {
-    const res = await fetch(getApiUrl(url), {
+    const res = await fetch(buildUrl(url), {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -95,7 +81,7 @@ export const apiClient = {
   },
 
   delete: async <T = any>(url: string): Promise<{ data: T; status: number }> => {
-    const res = await fetch(getApiUrl(url), {
+    const res = await fetch(buildUrl(url), {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });

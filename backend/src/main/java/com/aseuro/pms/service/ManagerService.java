@@ -421,4 +421,111 @@ public class ManagerService {
                 .finalizedRecordsCount(finalized)
                 .build();
     }
+
+    /**
+     * Full read-only report for one of the manager's direct-report employees.
+     * Returns role KPIs and HR KPIs with every rating/comment field.
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> getEmployeeFullReport(Long managerId, Long employeeId) {
+        Employee employee = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Employee not found"));
+
+        if (employee.getManager() == null || !employee.getManager().getId().equals(managerId)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Unauthorized: Employee is not assigned to you.");
+        }
+
+        PmsAssignment assignment = pmsAssignmentRepository.findFirstByEmployeeOrderByStartDateDesc(employee)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "No active PMS cycle found for employee"));
+
+        List<PmsKpi> allKpis = pmsKpiRepository.findByAssignment(assignment);
+        List<PmsKpi> roleKpis = allKpis.stream()
+                .filter(k -> !"HR_REVIEW_KPI".equals(k.getKpiCategory()))
+                .collect(Collectors.toList());
+        List<PmsKpi> hrKpis = allKpis.stream()
+                .filter(k -> "HR_REVIEW_KPI".equals(k.getKpiCategory()))
+                .collect(Collectors.toList());
+
+        List<EmployeeKpiRating> ratings = employeeKpiRatingRepository.findByAssignment(assignment);
+        List<EmployeeReview> reviews = employeeReviewRepository.findByAssignment(assignment);
+
+        List<Map<String, Object>> roleKpiDetails = new ArrayList<>();
+        double selfWeightedSum = 0.0, managerWeightedSum = 0.0;
+
+        for (PmsKpi kpi : roleKpis) {
+            EmployeeKpiRating r = ratings.stream()
+                    .filter(rt -> rt.getKpi().getId().equals(kpi.getId()))
+                    .findFirst().orElse(null);
+            Map<String, Object> item = new HashMap<>();
+            item.put("kpiId", kpi.getId());
+            item.put("kpiName", kpi.getKpiName());
+            item.put("description", kpi.getDescription());
+            item.put("weightage", kpi.getWeightage());
+            item.put("kpiCategory", kpi.getKpiCategory());
+            item.put("selfRating", r != null ? r.getSelfRating() : null);
+            item.put("employeeComments", r != null ? (r.getComments() != null ? r.getComments() : r.getEmployeeComment()) : null);
+            item.put("managerRating", r != null ? r.getManagerRating() : null);
+            item.put("managerComments", r != null ? r.getManagerComment() : null);
+            item.put("hrRating", r != null ? r.getHrRating() : null);
+            item.put("hrComments", r != null ? r.getHrComment() : null);
+            double w = kpi.getWeightage() / 100.0;
+            if (r != null && r.getSelfRating() != null) selfWeightedSum += r.getSelfRating() * w;
+            if (r != null && r.getManagerRating() != null) managerWeightedSum += r.getManagerRating() * w;
+            roleKpiDetails.add(item);
+        }
+
+        List<Map<String, Object>> hrKpiDetails = new ArrayList<>();
+        double hrWeightedSum = 0.0;
+
+        for (PmsKpi kpi : hrKpis) {
+            EmployeeKpiRating r = ratings.stream()
+                    .filter(rt -> rt.getKpi().getId().equals(kpi.getId()))
+                    .findFirst().orElse(null);
+            Map<String, Object> item = new HashMap<>();
+            item.put("kpiId", kpi.getId());
+            item.put("kpiName", kpi.getKpiName());
+            item.put("description", kpi.getDescription());
+            item.put("weightage", kpi.getWeightage());
+            item.put("kpiCategory", "HR_REVIEW_KPI");
+            item.put("hrRating", r != null ? r.getHrRating() : null);
+            item.put("hrComments", r != null ? r.getHrComment() : null);
+            double w = kpi.getWeightage() / 100.0;
+            if (r != null && r.getHrRating() != null) hrWeightedSum += r.getHrRating() * w;
+            hrKpiDetails.add(item);
+        }
+
+        String mgrOverallComment = reviews.stream()
+                .filter(rev -> rev.getReviewer() != null && rev.getReviewer().getRole() == Role.ROLE_MANAGER)
+                .map(EmployeeReview::getComments).findFirst().orElse(null);
+        String hrOverallComment = reviews.stream()
+                .filter(rev -> rev.getReviewer() != null && rev.getReviewer().getRole() == Role.ROLE_HR)
+                .map(EmployeeReview::getComments).findFirst().orElse(null);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("employee", Map.of(
+                "id", employee.getId(),
+                "employeeCode", "EMP-" + employee.getId(),
+                "name", employee.getName(),
+                "email", employee.getEmail(),
+                "designation", employee.getDesignation() != null ? employee.getDesignation() : "-",
+                "department", employee.getDepartment() != null ? employee.getDepartment() : "-",
+                "team", employee.getTeam() != null ? employee.getTeam() : "-",
+                "managerName", employee.getManager().getName()
+        ));
+        response.put("assignmentId", assignment.getId());
+        response.put("cycleMonth", assignment.getCycleMonth());
+        response.put("startDate", assignment.getStartDate() != null ? assignment.getStartDate().toString() : null);
+        response.put("endDate", assignment.getEndDate() != null ? assignment.getEndDate().toString() : null);
+        response.put("status", assignment.getStatus().name());
+        response.put("overallScore", assignment.getOverallScore());
+        response.put("performanceGrade", assignment.getPerformanceGrade());
+        response.put("selfCalculatedScore", Math.round(selfWeightedSum * 100.0) / 100.0);
+        response.put("managerCalculatedScore", Math.round(managerWeightedSum * 100.0) / 100.0);
+        response.put("hrCalculatedScore", Math.round(hrWeightedSum * 100.0) / 100.0);
+        response.put("roleKpis", roleKpiDetails);
+        response.put("hrKpis", hrKpiDetails);
+        response.put("overallManagerComment", mgrOverallComment);
+        response.put("overallHrComment", hrOverallComment);
+        return response;
+    }
 }

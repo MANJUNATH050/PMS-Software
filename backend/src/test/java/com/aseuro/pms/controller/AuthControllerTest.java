@@ -1,11 +1,16 @@
 package com.aseuro.pms.controller;
 
+import com.aseuro.pms.dto.ForgotPasswordRequest;
 import com.aseuro.pms.dto.LoginRequest;
+import com.aseuro.pms.dto.ResetPasswordRequest;
 import com.aseuro.pms.model.Employee;
+import com.aseuro.pms.model.PasswordResetToken;
 import com.aseuro.pms.model.Role;
 import com.aseuro.pms.repository.EmployeeRepository;
+import com.aseuro.pms.repository.PasswordResetTokenRepository;
 import com.aseuro.pms.security.JwtTokenProvider;
 import com.aseuro.pms.security.UserPrincipal;
+import com.aseuro.pms.service.MailService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,8 +23,10 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 
@@ -38,6 +45,15 @@ public class AuthControllerTest {
 
     @Mock
     private EmployeeRepository employeeRepository;
+
+    @Mock
+    private PasswordResetTokenRepository resetTokenRepository;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private MailService mailService;
 
     @InjectMocks
     private AuthController authController;
@@ -136,6 +152,61 @@ public class AuthControllerTest {
         assertEquals(HttpStatus.LOCKED, response.getStatusCode());
         verify(authenticationManager, never()).authenticate(any());
 
+        Map<?, ?> body = (Map<?, ?>) response.getBody();
+        assertNotNull(body);
+        assertEquals(true, body.get("locked"));
+        assertTrue((Long) body.get("remainingSeconds") > 0);
+    }
+
+    @Test
+    void testForgotPassword_ReturnsGenericMessage() {
+        when(employeeRepository.findByEmail("employee@aseuro.com")).thenReturn(Optional.of(employee));
+        when(resetTokenRepository.findByEmployeeAndUsedAtIsNull(employee)).thenReturn(Collections.emptyList());
+
+        ForgotPasswordRequest request = new ForgotPasswordRequest("employee@aseuro.com");
+        ResponseEntity<Map<String, String>> response = authController.forgotPassword(request);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertTrue(response.getBody().get("message").contains("If an account exists"));
+        verify(resetTokenRepository).save(any(PasswordResetToken.class));
+        verify(mailService).sendPasswordResetEmail(eq("employee@aseuro.com"), anyString());
+    }
+
+    @Test
+    void testResetPassword_WithDirectEmail_Success() {
+        when(employeeRepository.findByEmail("employee@aseuro.com")).thenReturn(Optional.of(employee));
+        when(passwordEncoder.encode("NewPass123!")).thenReturn("$2a$10$newHashedPassword");
+
+        ResetPasswordRequest request = new ResetPasswordRequest(null, "NewPass123!", "NewPass123!", "employee@aseuro.com");
+        ResponseEntity<?> response = authController.resetPassword(request);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals("$2a$10$newHashedPassword", employee.getPassword());
+        assertEquals(0, employee.getFailedLoginAttempts());
+        assertNull(employee.getLockedUntil());
+        verify(employeeRepository).save(employee);
+    }
+
+    @Test
+    void testResetPassword_MismatchingPasswords_ReturnsBadRequest() {
+        ResetPasswordRequest request = new ResetPasswordRequest(null, "NewPass123!", "Different123!", "employee@aseuro.com");
+        ResponseEntity<?> response = authController.resetPassword(request);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        Map<?, ?> body = (Map<?, ?>) response.getBody();
+        assertNotNull(body);
+        assertEquals("Passwords do not match.", body.get("message"));
+    }
+
+    @Test
+    void testLockStatus_WhenLocked_ReturnsRemainingSeconds() {
+        employee.setLockedUntil(LocalDateTime.now().plusSeconds(240));
+        when(employeeRepository.findByEmail("employee@aseuro.com")).thenReturn(Optional.of(employee));
+
+        ResponseEntity<?> response = authController.getLockStatus("employee@aseuro.com");
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
         Map<?, ?> body = (Map<?, ?>) response.getBody();
         assertNotNull(body);
         assertEquals(true, body.get("locked"));

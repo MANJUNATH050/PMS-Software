@@ -14,7 +14,7 @@ import java.io.IOException;
 import java.util.List;
 
 @RestController
-@RequestMapping("/employee/reports")
+@RequestMapping({"/employee/reports", "/api/reports", "/api/employee/reports"})
 public class ReportController {
 
     private final PmsService pmsService;
@@ -32,7 +32,7 @@ public class ReportController {
         return ResponseEntity.ok(reports);
     }
 
-    @GetMapping("/{assignmentId}/download")
+    @GetMapping({"/{assignmentId}/download", "/{assignmentId}/export"})
     public ResponseEntity<byte[]> downloadReport(
             @PathVariable Long assignmentId,
             @RequestParam(defaultValue = "pdf") String format,

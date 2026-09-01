@@ -23,6 +23,7 @@ public class HrLifecycleService {
     private final EmployeeReviewRepository employeeReviewRepository;
     private final FinalPmsResultRepository finalPmsResultRepository;
     private final PmsHistoryRepository pmsHistoryRepository;
+    private final PmsScoreCalculatorService scoreCalculatorService;
 
     public HrLifecycleService(
             EmployeeRepository employeeRepository,
@@ -32,7 +33,8 @@ public class HrLifecycleService {
             EmployeeKpiRatingRepository employeeKpiRatingRepository,
             EmployeeReviewRepository employeeReviewRepository,
             FinalPmsResultRepository finalPmsResultRepository,
-            PmsHistoryRepository pmsHistoryRepository) {
+            PmsHistoryRepository pmsHistoryRepository,
+            PmsScoreCalculatorService scoreCalculatorService) {
         this.employeeRepository = employeeRepository;
         this.pmsAssignmentRepository = pmsAssignmentRepository;
         this.pmsKpiRepository = pmsKpiRepository;
@@ -41,6 +43,7 @@ public class HrLifecycleService {
         this.employeeReviewRepository = employeeReviewRepository;
         this.finalPmsResultRepository = finalPmsResultRepository;
         this.pmsHistoryRepository = pmsHistoryRepository;
+        this.scoreCalculatorService = scoreCalculatorService;
     }
 
     @Transactional(readOnly = true)
@@ -72,10 +75,20 @@ public class HrLifecycleService {
 
     @Transactional
     public Map<String, Object> getEmployeeLifecycle(Long employeeId) {
+        return getEmployeeLifecycle(employeeId, null);
+    }
+
+    @Transactional
+    public Map<String, Object> getEmployeeLifecycle(Long employeeId, String cycleMonth) {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Employee not found"));
 
-        Optional<PmsAssignment> assignmentOpt = pmsAssignmentRepository.findFirstByEmployeeOrderByStartDateDesc(employee);
+        Optional<PmsAssignment> assignmentOpt;
+        if (cycleMonth != null && !cycleMonth.trim().isEmpty()) {
+            assignmentOpt = pmsAssignmentRepository.findByEmployeeAndCycleMonth(employee, cycleMonth.trim());
+        } else {
+            assignmentOpt = pmsAssignmentRepository.findFirstByEmployeeOrderByStartDateDesc(employee);
+        }
 
         Map<String, Object> response = new HashMap<>();
 
@@ -167,6 +180,9 @@ public class HrLifecycleService {
             km.put("managerRating", r != null ? r.getManagerRating() : null);
             km.put("hrRating", r != null ? r.getHrRating() : null);
             km.put("comments", r != null ? r.getComments() : null);
+            km.put("employeeComments", r != null ? r.getComments() : null);
+            km.put("managerComments", r != null ? r.getManagerComment() : null);
+            km.put("hrComments", r != null ? r.getHrComment() : null);
             km.put("ratingStatus", r != null ? r.getStatus() : "PENDING");
 
             double wFactor = kpi.getWeightage() / 100.0;
@@ -196,23 +212,13 @@ public class HrLifecycleService {
         response.put("roleKpis", roleKpiList);
         response.put("hrReviewKpis", hrReviewKpiList);
 
-        Double selfScore = hasSelf ? Math.round(selfWeightedSum * 100.0) / 100.0 : null;
-        Double managerScore = hasManager ? Math.round(managerWeightedSum * 100.0) / 100.0 : null;
-        Double hrScore = hasHr ? Math.round(hrWeightedSum * 100.0) / 100.0 : null;
+        var calcResult = scoreCalculatorService.calculateScores(allKpis, ratings);
 
-        Double finalCalculatedScore = null;
-        if (hasManager && hasHr) {
-            finalCalculatedScore = Math.round(((managerScore + hrScore) / 2.0) * 100.0) / 100.0;
-        } else if (hasHr) {
-            finalCalculatedScore = hrScore;
-        } else if (hasManager) {
-            finalCalculatedScore = managerScore;
-        }
-
-        response.put("employeeSelfScore", selfScore);
-        response.put("managerWeightedScore", managerScore);
-        response.put("hrWeightedScore", hrScore);
-        response.put("calculatedScore", finalCalculatedScore);
+        response.put("employeeSelfScore", calcResult.selfScore());
+        response.put("managerWeightedScore", calcResult.managerScore());
+        response.put("hrWeightedScore", calcResult.hrScore());
+        response.put("calculatedScore", calcResult.finalScore());
+        response.put("performanceGrade", calcResult.grade());
 
         // Reviews
         List<EmployeeReview> reviews = employeeReviewRepository.findByAssignment(assignment);
@@ -241,8 +247,21 @@ public class HrLifecycleService {
         PmsAssignment assignment = pmsAssignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "PMS Assignment not found"));
 
+        // WORKFLOW ENFORCEMENT: Reject if finalized
         if (assignment.getStatus() == PMSState.COMPLETED || assignment.getStatus() == PMSState.FINAL_RESULT_PUBLISHED) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "PMS record is already finalized and cannot be modified.");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Appraisal is finalized and cannot be modified.");
+        }
+
+        // WORKFLOW ENFORCEMENT: Reject if manager review not completed
+        PMSState currentState = assignment.getStatus();
+        boolean managerReviewCompleted =
+                currentState == PMSState.MANAGER_REVIEW_SUBMITTED ||
+                currentState == PMSState.HR_REVIEW_PENDING ||
+                currentState == PMSState.HR_REVIEW_COMPLETED;
+
+        if (!managerReviewCompleted) {
+            throw new ApiException(HttpStatus.BAD_REQUEST,
+                    "HR Review is locked until Employee Self Assessment and Manager Review are completed.");
         }
 
         Employee hr = employeeRepository.findById(hrEmployeeId)
@@ -262,12 +281,8 @@ public class HrLifecycleService {
                     throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid KPI ID " + entry.getKpiId() + " for this assignment");
                 }
 
-                if (entry.getHrRating() != null && (entry.getHrRating() < 0.0 || entry.getHrRating() > 5.0)) {
-                    throw new ApiException(HttpStatus.BAD_REQUEST, "HR Rating must be between 0.0 and 5.0 for KPI ID " + entry.getKpiId());
-                }
-
-                if (entry.getManagerRating() != null && (entry.getManagerRating() < 0.0 || entry.getManagerRating() > 5.0)) {
-                    throw new ApiException(HttpStatus.BAD_REQUEST, "Manager Rating must be between 0.0 and 5.0 for KPI ID " + entry.getKpiId());
+                if (entry.getHrRating() != null && (entry.getHrRating() < 1.0 || entry.getHrRating() > 5.0)) {
+                    throw new ApiException(HttpStatus.BAD_REQUEST, "HR Rating must be between 1.0 and 5.0 for KPI ID " + entry.getKpiId());
                 }
 
                 EmployeeKpiRating rating = ratingMap.get(entry.getKpiId());
@@ -278,15 +293,14 @@ public class HrLifecycleService {
                             .build();
                 }
 
+                // HR can ONLY save HR Rating and HR Comment — NOT employee/manager fields
                 if (entry.getHrRating() != null) {
                     rating.setHrRating(entry.getHrRating());
                 }
-                if (entry.getManagerRating() != null) {
-                    rating.setManagerRating(entry.getManagerRating());
+                if (entry.getEffectiveHrComments() != null) {
+                    rating.setHrComment(entry.getEffectiveHrComments());
                 }
-                if (entry.getComments() != null && !entry.getComments().trim().isEmpty()) {
-                    rating.setComments(entry.getComments().trim());
-                }
+
                 rating.setStatus("HR_REVIEWED");
                 employeeKpiRatingRepository.save(rating);
             }
@@ -308,10 +322,91 @@ public class HrLifecycleService {
             employeeReviewRepository.save(review);
         }
 
+        // Update status to HR_REVIEW_PENDING if still at MANAGER_REVIEW_SUBMITTED
+        if (assignment.getStatus() == PMSState.MANAGER_REVIEW_SUBMITTED) {
+            assignment.setStatus(PMSState.HR_REVIEW_PENDING);
+            pmsAssignmentRepository.save(assignment);
+        }
+
         return Map.of(
-                "message", "HR ratings saved successfully.",
+                "message", "HR ratings and comments saved successfully.",
                 "assignmentId", assignment.getId()
         );
+    }
+
+    private void recalculateFinalizedScore(PmsAssignment assignment, Employee hr) {
+        List<PmsKpi> allKpis = pmsKpiRepository.findByAssignment(assignment);
+        List<EmployeeKpiRating> ratings = employeeKpiRatingRepository.findByAssignment(assignment);
+        Map<Long, EmployeeKpiRating> ratingMap = ratings.stream()
+                .collect(Collectors.toMap(r -> r.getKpi().getId(), r -> r, (r1, r2) -> r1));
+
+        List<PmsKpi> roleKpis = allKpis.stream()
+                .filter(k -> !"HR_REVIEW_KPI".equals(k.getKpiCategory()))
+                .collect(Collectors.toList());
+
+        List<PmsKpi> hrReviewKpis = allKpis.stream()
+                .filter(k -> "HR_REVIEW_KPI".equals(k.getKpiCategory()))
+                .collect(Collectors.toList());
+
+        double managerWeightedSum = 0.0;
+        for (PmsKpi kpi : roleKpis) {
+            EmployeeKpiRating r = ratingMap.get(kpi.getId());
+            double wFactor = kpi.getWeightage() / 100.0;
+            if (r != null && r.getManagerRating() != null) {
+                managerWeightedSum += r.getManagerRating() * wFactor;
+            }
+        }
+
+        double hrWeightedSum = 0.0;
+        for (PmsKpi kpi : hrReviewKpis) {
+            EmployeeKpiRating r = ratingMap.get(kpi.getId());
+            double wFactor = kpi.getWeightage() / 100.0;
+            if (r != null && r.getHrRating() != null) {
+                hrWeightedSum += r.getHrRating() * wFactor;
+            }
+        }
+
+        double managerWeightedScore = Math.round(managerWeightedSum * 100.0) / 100.0;
+        double hrWeightedScore = Math.round(hrWeightedSum * 100.0) / 100.0;
+        double finalScore;
+
+        if (managerWeightedSum > 0 && hrWeightedSum > 0) {
+            finalScore = Math.round(((managerWeightedScore + hrWeightedScore) / 2.0) * 100.0) / 100.0;
+        } else if (hrWeightedSum > 0) {
+            finalScore = hrWeightedScore;
+        } else if (managerWeightedSum > 0) {
+            finalScore = managerWeightedScore;
+        } else {
+            finalScore = 0.0;
+        }
+
+        String grade;
+        if (finalScore >= 4.5) grade = "Outstanding Performance";
+        else if (finalScore >= 4.0) grade = "Excellent Performance";
+        else if (finalScore >= 3.5) grade = "Very Good Performance";
+        else if (finalScore >= 3.0) grade = "Good Performance";
+        else if (finalScore >= 2.0) grade = "Needs Improvement";
+        else grade = "Unsatisfactory";
+
+        assignment.setOverallScore(finalScore);
+        assignment.setPerformanceGrade(grade);
+        pmsAssignmentRepository.save(assignment);
+
+        Optional<FinalPmsResult> resOpt = finalPmsResultRepository.findByAssignment(assignment);
+        if (resOpt.isPresent()) {
+            FinalPmsResult res = resOpt.get();
+            res.setFinalScore(finalScore);
+            res.setGrade(grade);
+            finalPmsResultRepository.save(res);
+        }
+
+        Optional<PmsHistory> histOpt = pmsHistoryRepository.findByEmployeeAndCycleMonth(assignment.getEmployee(), assignment.getCycleMonth());
+        if (histOpt.isPresent()) {
+            PmsHistory hist = histOpt.get();
+            hist.setFinalScore(finalScore);
+            hist.setGrade(grade);
+            pmsHistoryRepository.save(hist);
+        }
     }
 
     @Transactional
@@ -343,11 +438,14 @@ public class HrLifecycleService {
                 .filter(k -> "HR_REVIEW_KPI".equals(k.getKpiCategory()))
                 .collect(Collectors.toList());
 
-        // Validate Role KPIs: Self rating must exist
+        // Validate Role KPIs: Self rating and Manager rating must exist
         for (PmsKpi kpi : roleKpis) {
             EmployeeKpiRating r = ratingMap.get(kpi.getId());
             if (r == null || r.getSelfRating() == null) {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "Self assessment ratings are incomplete for KPI: " + kpi.getKpiName());
+            }
+            if (r.getManagerRating() == null) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Manager ratings are required for KPI: " + kpi.getKpiName());
             }
         }
 
@@ -404,12 +502,11 @@ public class HrLifecycleService {
             else grade = "Unsatisfactory";
         }
 
-        LocalDate today = LocalDate.now();
-
-        assignment.setStatus(PMSState.COMPLETED);
+        // Update assignment status to FINAL_RESULT_PUBLISHED and persist scores
+        assignment.setStatus(PMSState.FINAL_RESULT_PUBLISHED);
         assignment.setOverallScore(finalScore);
         assignment.setPerformanceGrade(grade);
-        assignment.setFinalizedDate(today);
+        assignment.setFinalizedDate(LocalDate.now());
         pmsAssignmentRepository.save(assignment);
 
         // Save FinalPmsResult
@@ -418,20 +515,9 @@ public class HrLifecycleService {
                 .finalScore(finalScore)
                 .grade(grade)
                 .finalizedBy(hr)
-                .finalizedDate(today)
+                .finalizedDate(LocalDate.now())
                 .build();
-        finalPmsResultRepository.save(result);
-
-        // Save PmsHistory
-        PmsHistory history = PmsHistory.builder()
-                .employee(assignment.getEmployee())
-                .assignmentId(assignment.getId())
-                .cycleMonth(assignment.getCycleMonth())
-                .finalScore(finalScore)
-                .grade(grade)
-                .finalizedDate(today)
-                .build();
-        pmsHistoryRepository.save(history);
+        LocalDate today = LocalDate.now();
 
         // Add HR review comment if provided
         if (request.getHrComments() != null && !request.getHrComments().trim().isEmpty()) {

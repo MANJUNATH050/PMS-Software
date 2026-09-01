@@ -5,11 +5,11 @@ import { authApi, LoginCredentials } from '../api/authApi';
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (credentials: LoginCredentials) => Promise<void>;
+  login: (credentials: LoginCredentials) => Promise<User>;
   logout: () => void;
-  isAuthenticated: boolean;
   signIn: (session: any) => void;
   signOut: () => void;
+  isAuthenticated: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,7 +31,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(false);
   }, []);
 
-  const login = async (credentials: LoginCredentials) => {
+  const login = async (credentials: LoginCredentials): Promise<User> => {
     setLoading(true);
     try {
       const response = await authApi.login(credentials);
@@ -41,6 +41,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       localStorage.setItem('pms_user', JSON.stringify(response));
       setUser(response);
+      return response;
     } finally {
       setLoading(false);
     }
@@ -72,7 +73,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, isAuthenticated: !!user, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, signIn, signOut, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   );

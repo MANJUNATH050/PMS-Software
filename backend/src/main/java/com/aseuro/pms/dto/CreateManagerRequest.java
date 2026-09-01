@@ -1,5 +1,6 @@
 package com.aseuro.pms.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
@@ -28,4 +29,11 @@ public class CreateManagerRequest {
     private String team;
     private String designation;
     private LocalDate joiningDate;
+
+    @JsonAlias({"managerId", "reportingManagerId"})
+    private Long reportingManagerId;
+
+    public Long getEffectiveReportingManagerId() {
+        return reportingManagerId;
+    }
 }

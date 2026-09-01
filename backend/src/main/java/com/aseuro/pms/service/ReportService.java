@@ -16,7 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -94,109 +95,246 @@ public class ReportService {
             PDPage page = new PDPage(PDRectangle.A4);
             document.addPage(page);
 
-            try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
-                PDType1Font fontBold = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
-                PDType1Font fontRegular = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
+            PDType1Font fontBold = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
+            PDType1Font fontRegular = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
+            PDType1Font fontOblique = new PDType1Font(Standard14Fonts.FontName.HELVETICA_OBLIQUE);
 
-                // Header
+            PDPageContentStream contentStream = new PDPageContentStream(document, page);
+            int yPosition = 780;
+
+            // Header
+            contentStream.beginText();
+            contentStream.setFont(fontBold, 15);
+            contentStream.newLineAtOffset(50, yPosition);
+            contentStream.showText("Performance Management System (PMS) - Final Report");
+            contentStream.endText();
+            yPosition -= 30;
+
+            // Employee Info Box
+            contentStream.beginText();
+            contentStream.setFont(fontBold, 9);
+            contentStream.newLineAtOffset(50, yPosition);
+            contentStream.showText("Employee Name: " + assignment.getEmployee().getName() + " (EMP-" + assignment.getEmployee().getId() + ")");
+            contentStream.newLineAtOffset(0, -14);
+            contentStream.showText("Designation: " + (assignment.getEmployee().getDesignation() != null ? assignment.getEmployee().getDesignation() : "-") +
+                    " | Department: " + (assignment.getEmployee().getDepartment() != null ? assignment.getEmployee().getDepartment() : "-"));
+            contentStream.newLineAtOffset(0, -14);
+            contentStream.showText("PMS Cycle: " + assignment.getCycleMonth() + " | Status: " + assignment.getStatus());
+            contentStream.newLineAtOffset(0, -14);
+            contentStream.showText("Scores: Self (" + selfScore + ") | Manager (" + mgrScore + ") | HR (" + hrScore + ")");
+            contentStream.newLineAtOffset(0, -14);
+            contentStream.showText("Final Performance Score: " + (assignment.getOverallScore() != null ? String.format("%.2f", assignment.getOverallScore()) : "N/A") +
+                    " / 5.00 (" + (assignment.getPerformanceGrade() != null ? assignment.getPerformanceGrade() : "Pending") + ")");
+            contentStream.endText();
+            yPosition -= 80;
+
+            // Section 1: Role / Employee KPIs
+            contentStream.beginText();
+            contentStream.setFont(fontBold, 11);
+            contentStream.newLineAtOffset(50, yPosition);
+            contentStream.showText("1. Employee KPI Performance Breakdown & Comments:");
+            contentStream.endText();
+            yPosition -= 20;
+
+            for (PmsKpi kpi : roleKpis) {
+                EmployeeKpiRating r = ratings.stream()
+                        .filter(rt -> rt.getKpi().getId().equals(kpi.getId()))
+                        .findFirst().orElse(null);
+
+                // Check remaining space for KPI title + ratings block
+                if (yPosition < 120) {
+                    contentStream.close();
+                    page = new PDPage(PDRectangle.A4);
+                    document.addPage(page);
+                    contentStream = new PDPageContentStream(document, page);
+                    yPosition = 780;
+                }
+
                 contentStream.beginText();
-                contentStream.setFont(fontBold, 16);
-                contentStream.newLineAtOffset(50, 780);
-                contentStream.showText("Performance Management System (PMS) - Final Report");
+                contentStream.setFont(fontBold, 9);
+                contentStream.newLineAtOffset(50, yPosition);
+                contentStream.showText("• " + sanitizeText(kpi.getKpiName()) + " (Weight: " + kpi.getWeightage() + "%)");
+                contentStream.setFont(fontRegular, 8);
+                contentStream.newLineAtOffset(0, -12);
+                contentStream.showText("  Self Rating: " + (r != null && r.getSelfRating() != null ? r.getSelfRating() : "N/A") +
+                        " | Manager Rating: " + (r != null && r.getManagerRating() != null ? r.getManagerRating() : "N/A") +
+                        " | HR Rating: " + (r != null && r.getHrRating() != null ? r.getHrRating() : "N/A"));
                 contentStream.endText();
+                yPosition -= 26;
 
-                // Employee Info
-                contentStream.beginText();
-                contentStream.setFont(fontBold, 10);
-                contentStream.newLineAtOffset(50, 750);
-                contentStream.showText("Employee Name: " + assignment.getEmployee().getName() + " (EMP-" + assignment.getEmployee().getId() + ")");
-                contentStream.newLineAtOffset(0, -15);
-                contentStream.showText("Designation: " + assignment.getEmployee().getDesignation() + " | Department: " + assignment.getEmployee().getDepartment());
-                contentStream.newLineAtOffset(0, -15);
-                contentStream.showText("PMS Cycle: " + assignment.getCycleMonth() + " | Status: " + assignment.getStatus());
-                contentStream.newLineAtOffset(0, -15);
-                contentStream.showText("Self Assessment Score: " + selfScore + " / 5.00 | Manager Score: " + mgrScore + " / 5.00 | HR Score: " + hrScore + " / 5.00");
-                contentStream.newLineAtOffset(0, -15);
-                contentStream.showText("Final Result: " + (assignment.getOverallScore() != null ? assignment.getOverallScore() : "N/A") + " / 5.00 (" + (assignment.getPerformanceGrade() != null ? assignment.getPerformanceGrade() : "Pending") + ")");
-                contentStream.endText();
+                // Employee Comment
+                String empComment = r != null ? r.getEmployeeComment() : null;
+                if (empComment != null && !empComment.trim().isEmpty()) {
+                    yPosition = drawCommentBlock(contentStream, document, page, fontBold, fontOblique, "Employee Comment:", empComment, yPosition);
+                }
 
-                int yPosition = 660;
+                // Manager Comment
+                String mgrComment = r != null ? r.getManagerComment() : null;
+                if (mgrComment != null && !mgrComment.trim().isEmpty()) {
+                    yPosition = drawCommentBlock(contentStream, document, page, fontBold, fontOblique, "Manager Comment:", mgrComment, yPosition);
+                }
 
-                // KPI List Section
+                // HR Comment
+                String hrComment = r != null ? r.getHrComment() : null;
+                if (hrComment != null && !hrComment.trim().isEmpty()) {
+                    yPosition = drawCommentBlock(contentStream, document, page, fontBold, fontOblique, "HR Comment:", hrComment, yPosition);
+                }
+
+                yPosition -= 10;
+            }
+
+            // Section 2: HR Review KPIs
+            if (!hrKpis.isEmpty()) {
+                if (yPosition < 140) {
+                    contentStream.close();
+                    page = new PDPage(PDRectangle.A4);
+                    document.addPage(page);
+                    contentStream = new PDPageContentStream(document, page);
+                    yPosition = 780;
+                }
+
+                yPosition -= 10;
                 contentStream.beginText();
                 contentStream.setFont(fontBold, 11);
                 contentStream.newLineAtOffset(50, yPosition);
-                contentStream.showText("Role / Manager KPI Breakdown:");
+                contentStream.showText("2. HR Review KPI Evaluation (Corporate Staff):");
                 contentStream.endText();
                 yPosition -= 20;
 
-                for (PmsKpi kpi : roleKpis) {
-                    EmployeeKpiRating rating = ratings.stream()
-                            .filter(r -> r.getKpi().getId().equals(kpi.getId()))
+                for (PmsKpi kpi : hrKpis) {
+                    EmployeeKpiRating r = ratings.stream()
+                            .filter(rt -> rt.getKpi().getId().equals(kpi.getId()))
                             .findFirst().orElse(null);
+                    Double hrRat = r != null && r.getHrRating() != null ? r.getHrRating() : 5.0;
+
+                    if (yPosition < 100) {
+                        contentStream.close();
+                        page = new PDPage(PDRectangle.A4);
+                        document.addPage(page);
+                        contentStream = new PDPageContentStream(document, page);
+                        yPosition = 780;
+                    }
 
                     contentStream.beginText();
                     contentStream.setFont(fontBold, 9);
                     contentStream.newLineAtOffset(50, yPosition);
-                    contentStream.showText("• " + kpi.getKpiName() + " (Weight: " + kpi.getWeightage() + "%)");
-                    contentStream.setFont(fontRegular, 8);
-                    contentStream.newLineAtOffset(0, -12);
-                    contentStream.showText("  Self: " + (rating != null && rating.getSelfRating() != null ? rating.getSelfRating() : "N/A") +
-                            " | Manager: " + (rating != null && rating.getManagerRating() != null ? rating.getManagerRating() : "N/A") +
-                            " | HR: " + (rating != null && rating.getHrRating() != null ? rating.getHrRating() : "N/A"));
+                    contentStream.showText("• " + sanitizeText(kpi.getKpiName()) + " (Weight: " + kpi.getWeightage() + "%) - HR Rating: " + hrRat + " / 5.00");
                     contentStream.endText();
+                    yPosition -= 14;
 
-                    yPosition -= 28;
-                    if (yPosition < 160) break;
-                }
-
-                // HR Review KPI Evaluation Section
-                if (!hrKpis.isEmpty() && yPosition > 140) {
-                    yPosition -= 10;
-                    contentStream.beginText();
-                    contentStream.setFont(fontBold, 11);
-                    contentStream.newLineAtOffset(50, yPosition);
-                    contentStream.showText("HR Review KPI Evaluation (Corporate Staff):");
-                    contentStream.endText();
-                    yPosition -= 18;
-
-                    for (PmsKpi kpi : hrKpis) {
-                        EmployeeKpiRating rating = ratings.stream()
-                                .filter(r -> r.getKpi().getId().equals(kpi.getId()))
-                                .findFirst().orElse(null);
-                        Double hrRat = rating != null && rating.getHrRating() != null ? rating.getHrRating() : 5.0;
-
-                        contentStream.beginText();
-                        contentStream.setFont(fontBold, 9);
-                        contentStream.newLineAtOffset(50, yPosition);
-                        contentStream.showText("• " + kpi.getKpiName() + " (Weight: " + kpi.getWeightage() + "%) - HR Rating: " + hrRat + " / 5.00 [FINALIZED]");
-                        contentStream.endText();
-
-                        yPosition -= 18;
-                        if (yPosition < 100) break;
+                    String hrKpiComment = r != null ? r.getHrComment() : null;
+                    if (hrKpiComment != null && !hrKpiComment.trim().isEmpty()) {
+                        yPosition = drawCommentBlock(contentStream, document, page, fontBold, fontOblique, "HR Comment:", hrKpiComment, yPosition);
                     }
-                }
 
-                // Overall Review
-                if (yPosition > 80 && !reviews.isEmpty()) {
-                    yPosition -= 10;
-                    contentStream.beginText();
-                    contentStream.setFont(fontBold, 10);
-                    contentStream.newLineAtOffset(50, yPosition);
-                    contentStream.showText("Reviews & Remarks:");
-                    contentStream.setFont(fontRegular, 8);
-                    for (EmployeeReview rev : reviews) {
-                        contentStream.newLineAtOffset(0, -14);
-                        contentStream.showText(rev.getReviewer().getRole().name().replace("ROLE_", "") + ": " + rev.getComments());
-                    }
-                    contentStream.endText();
+                    yPosition -= 8;
                 }
             }
+
+            // Section 3: Overall Review Remarks
+            if (!reviews.isEmpty()) {
+                if (yPosition < 120) {
+                    contentStream.close();
+                    page = new PDPage(PDRectangle.A4);
+                    document.addPage(page);
+                    contentStream = new PDPageContentStream(document, page);
+                    yPosition = 780;
+                }
+
+                yPosition -= 10;
+                contentStream.beginText();
+                contentStream.setFont(fontBold, 11);
+                contentStream.newLineAtOffset(50, yPosition);
+                contentStream.showText("3. Overall Evaluator Reviews & Remarks:");
+                contentStream.endText();
+                yPosition -= 18;
+
+                for (EmployeeReview rev : reviews) {
+                    if (yPosition < 80) {
+                        contentStream.close();
+                        page = new PDPage(PDRectangle.A4);
+                        document.addPage(page);
+                        contentStream = new PDPageContentStream(document, page);
+                        yPosition = 780;
+                    }
+
+                    String roleName = rev.getReviewer().getRole().name().replace("ROLE_", "");
+                    String label = roleName + " (" + sanitizeText(rev.getReviewer().getName()) + "):";
+                    yPosition = drawCommentBlock(contentStream, document, page, fontBold, fontOblique, label, rev.getComments(), yPosition);
+                    yPosition -= 6;
+                }
+            }
+
+            contentStream.close();
 
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             document.save(baos);
             return baos.toByteArray();
         }
+    }
+
+    private int drawCommentBlock(
+            PDPageContentStream stream,
+            PDDocument doc,
+            PDPage page,
+            PDType1Font labelFont,
+            PDType1Font commentFont,
+            String label,
+            String commentText,
+            int currentY) throws IOException {
+
+        List<String> wrappedLines = wrapText(sanitizeText(commentText), 85);
+        int neededHeight = 14 + (wrappedLines.size() * 10);
+
+        if (currentY - neededHeight < 50) {
+            stream.close();
+            page = new PDPage(PDRectangle.A4);
+            doc.addPage(page);
+            stream = new PDPageContentStream(doc, page);
+            currentY = 780;
+        }
+
+        stream.beginText();
+        stream.setFont(labelFont, 8);
+        stream.newLineAtOffset(65, currentY);
+        stream.showText(label);
+        stream.setFont(commentFont, 8);
+        for (String line : wrappedLines) {
+            stream.newLineAtOffset(0, -10);
+            stream.showText("\"" + line + "\"");
+        }
+        stream.endText();
+
+        return currentY - neededHeight - 4;
+    }
+
+    private String sanitizeText(String input) {
+        if (input == null) return "";
+        return input.replaceAll("[\\r\\n]+", " ").replaceAll("[^\\x00-\\x7F]", "");
+    }
+
+    private List<String> wrapText(String text, int maxCharsPerLine) {
+        if (text == null || text.trim().isEmpty()) return Collections.emptyList();
+        List<String> result = new ArrayList<>();
+        String[] words = text.split("\\s+");
+        StringBuilder sb = new StringBuilder();
+
+        for (String w : words) {
+            if (sb.length() + w.length() + 1 > maxCharsPerLine) {
+                if (sb.length() > 0) {
+                    result.add(sb.toString());
+                    sb = new StringBuilder();
+                }
+            }
+            if (sb.length() > 0) {
+                sb.append(" ");
+            }
+            sb.append(w);
+        }
+        if (sb.length() > 0) {
+            result.add(sb.toString());
+        }
+        return result;
     }
 
     @Transactional(readOnly = true)
@@ -272,7 +410,7 @@ public class ReportService {
 
             // KPI Header row
             Row headerRow = sheet.createRow(rowNum++);
-            String[] columns = {"Category", "KPI Name", "Measurement Criteria", "Weightage", "Self Rating", "Manager Rating", "HR Rating", "Comments"};
+            String[] columns = {"Category", "KPI Name", "Measurement Criteria", "Weightage", "Self Rating", "Employee Comment", "Manager Rating", "Manager Comment", "HR Rating", "HR Comment"};
             for (int i = 0; i < columns.length; i++) {
                 Cell cell = headerRow.createCell(i);
                 cell.setCellValue(columns[i]);
@@ -281,8 +419,8 @@ public class ReportService {
 
             // Write KPI details
             for (PmsKpi kpi : allKpis) {
-                EmployeeKpiRating rating = ratings.stream()
-                        .filter(r -> r.getKpi().getId().equals(kpi.getId()))
+                EmployeeKpiRating r = ratings.stream()
+                        .filter(rt -> rt.getKpi().getId().equals(kpi.getId()))
                         .findFirst().orElse(null);
 
                 Row row = sheet.createRow(rowNum++);
@@ -290,10 +428,12 @@ public class ReportService {
                 row.createCell(1).setCellValue(kpi.getKpiName());
                 row.createCell(2).setCellValue(kpi.getDescription());
                 row.createCell(3).setCellValue(kpi.getWeightage() + "%");
-                row.createCell(4).setCellValue(rating != null && rating.getSelfRating() != null ? rating.getSelfRating() : 0.0);
-                row.createCell(5).setCellValue(rating != null && rating.getManagerRating() != null ? rating.getManagerRating() : 0.0);
-                row.createCell(6).setCellValue(rating != null && rating.getHrRating() != null ? rating.getHrRating() : ("HR_REVIEW_KPI".equals(kpi.getKpiCategory()) ? 5.0 : 0.0));
-                row.createCell(7).setCellValue(rating != null && rating.getComments() != null ? rating.getComments() : "");
+                row.createCell(4).setCellValue(r != null && r.getSelfRating() != null ? r.getSelfRating() : 0.0);
+                row.createCell(5).setCellValue(r != null && r.getEmployeeComment() != null ? r.getEmployeeComment() : "");
+                row.createCell(6).setCellValue(r != null && r.getManagerRating() != null ? r.getManagerRating() : 0.0);
+                row.createCell(7).setCellValue(r != null && r.getManagerComment() != null ? r.getManagerComment() : "");
+                row.createCell(8).setCellValue(r != null && r.getHrRating() != null ? r.getHrRating() : ("HR_REVIEW_KPI".equals(kpi.getKpiCategory()) ? 5.0 : 0.0));
+                row.createCell(9).setCellValue(r != null && r.getHrComment() != null ? r.getHrComment() : "");
             }
 
             for (int i = 0; i < columns.length; i++) {

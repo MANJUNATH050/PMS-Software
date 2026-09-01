@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/employee/pms")
+@RequestMapping({"/employee/pms", "/api/employee/pms"})
 public class PmsController {
 
     private final PmsService pmsService;

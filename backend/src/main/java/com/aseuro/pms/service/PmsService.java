@@ -129,13 +129,66 @@ public class PmsService {
                 .build();
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public PmsAssignmentDto getCurrentAssignment(Long employeeId) {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found"));
 
-        PmsAssignment assignment = pmsAssignmentRepository.findFirstByEmployeeOrderByStartDateDesc(employee)
-                .orElseThrow(() -> new IllegalArgumentException("No active PMS cycle found"));
+        Optional<PmsAssignment> assignmentOpt = pmsAssignmentRepository.findFirstByEmployeeOrderByStartDateDesc(employee);
+        PmsAssignment assignment;
+
+        if (assignmentOpt.isPresent()) {
+            assignment = assignmentOpt.get();
+        } else {
+            // Auto-provision fresh August 2026 cycle for this employee
+            assignment = PmsAssignment.builder()
+                    .employee(employee)
+                    .cycleMonth("August 2026")
+                    .status(PMSState.SELF_ASSESSMENT_DRAFT)
+                    .startDate(LocalDate.of(2026, 8, 1))
+                    .endDate(LocalDate.of(2026, 8, 31))
+                    .submissionDeadline(LocalDate.of(2026, 9, 10))
+                    .build();
+            assignment = pmsAssignmentRepository.save(assignment);
+
+            String desig = employee.getDesignation() != null ? employee.getDesignation().trim() : "Software Engineer";
+            List<KpiMaster> masterKpis = kpiMasterRepository.findByDesignationIgnoreCaseAndStatus(desig, "ACTIVE");
+            if (masterKpis.isEmpty()) {
+                masterKpis = kpiMasterRepository.findByDesignationIgnoreCaseAndStatus("Software Engineer", "ACTIVE");
+            }
+            if (masterKpis.isEmpty()) {
+                masterKpis = kpiMasterRepository.findAll();
+            }
+
+            boolean isManagerRole = employee.getRole() == Role.ROLE_MANAGER;
+            List<KpiMaster> effectiveKpis = masterKpis.stream().filter(km -> {
+                String app = km.getApplicableFor() != null ? km.getApplicableFor().trim() : "Employee";
+                if (app.equalsIgnoreCase("Both") || app.equalsIgnoreCase("Both Employee & Manager") || app.toLowerCase().contains("both")) {
+                    return true;
+                }
+                return isManagerRole ? app.equalsIgnoreCase("Manager") : app.equalsIgnoreCase("Employee");
+            }).collect(Collectors.toList());
+
+            if (effectiveKpis.isEmpty()) {
+                effectiveKpis = masterKpis;
+            }
+
+            List<PmsKpi> assignedKpis = new ArrayList<>();
+            for (KpiMaster km : effectiveKpis) {
+                PmsKpi k = PmsKpi.builder()
+                        .assignment(assignment)
+                        .kpiName(km.getKpiName())
+                        .description(km.getDescription())
+                        .weightage(km.getWeightage())
+                        .applicableFor(km.getApplicableFor() != null ? km.getApplicableFor() : "Employee")
+                        .kpiCategory(km.getKpiCategory() != null ? km.getKpiCategory() : "ROLE_KPI")
+                        .build();
+                assignedKpis.add(k);
+            }
+            if (!assignedKpis.isEmpty()) {
+                pmsKpiRepository.saveAll(assignedKpis);
+            }
+        }
 
         return getAssignmentDto(assignment);
     }
@@ -415,6 +468,9 @@ public class PmsService {
                     .managerRating(r != null ? r.getManagerRating() : null)
                     .hrRating(r != null ? r.getHrRating() : null)
                     .comments(r != null ? r.getComments() : null)
+                    .employeeComments(r != null ? r.getComments() : null)
+                    .managerComments(r != null ? r.getManagerComment() : null)
+                    .hrComments(r != null ? r.getHrComment() : null)
                     .ratingStatus(r != null ? r.getStatus() : "PENDING")
                     .build();
         }).collect(Collectors.toList());
@@ -439,6 +495,9 @@ public class PmsService {
                     .managerRating(r != null ? r.getManagerRating() : null)
                     .hrRating(hrRat)
                     .comments(r != null ? r.getComments() : null)
+                    .employeeComments(r != null ? r.getComments() : null)
+                    .managerComments(r != null ? r.getManagerComment() : null)
+                    .hrComments(r != null ? r.getHrComment() : null)
                     .ratingStatus(stat)
                     .build();
         }).collect(Collectors.toList());

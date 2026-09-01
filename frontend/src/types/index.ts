@@ -28,6 +28,8 @@ export interface ManagerOption {
   employeeCode: string;
   email: string;
   designationName: string;
+  reportingManagerId?: number | null;
+  reportingManagerName?: string;
 }
 
 export interface EmployeeRecord {
@@ -92,6 +94,9 @@ export interface Kpi {
   managerRating: number | null;
   hrRating: number | null;
   comments: string | null;
+  employeeComments?: string | null;
+  managerComments?: string | null;
+  hrComments?: string | null;
   ratingStatus: 'DRAFT' | 'SUBMITTED' | 'COMPLETED' | 'PENDING' | 'FINALIZED' | 'IN_PROGRESS' | string;
 }
 
@@ -179,6 +184,9 @@ export interface LifecycleKpiDetail {
   managerRating: number | null;
   hrRating: number | null;
   comments: string | null;
+  employeeComments?: string | null;
+  managerComments?: string | null;
+  hrComments?: string | null;
   ratingStatus: string;
   effectiveScore: number | null;
 }
@@ -247,18 +255,25 @@ export interface CreateManagerPayload {
   name: string;
   managerCode?: string;
   email: string;
-  password: string;
+  password?: string;
   designation?: string;
   department?: string;
   team?: string;
   joiningDate?: string;
+  reportingManagerId?: number | null;
+  managerId?: number | null;
 }
 
 export interface HrSaveRatingsPayload {
   ratings: Array<{
     kpiId: number;
-    hrRating?: number;
+    selfRating?: number;
+    selfComment?: string;
+    employeeComment?: string;
     managerRating?: number;
+    managerComment?: string;
+    hrRating?: number;
+    hrComment?: string;
     comments?: string;
   }>;
   hrComments?: string;

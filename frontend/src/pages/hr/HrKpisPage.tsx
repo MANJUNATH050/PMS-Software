@@ -18,6 +18,8 @@ import {
   Layers
 } from 'lucide-react';
 
+import { RatingScaleLegend } from '../../components/RatingScaleLegend';
+
 export const HrKpisPage: React.FC = () => {
   const navigate = useNavigate();
   const [kpiCategory, setKpiCategory] = useState<'ROLE_KPI' | 'HR_REVIEW_KPI'>('ROLE_KPI');
@@ -241,6 +243,8 @@ export const HrKpisPage: React.FC = () => {
           </button>
         </div>
       </div>
+
+      <RatingScaleLegend className="my-2" />
 
       {success && (
         <div className="bg-pms-lightGreen border-l-4 border-pms-green p-4 rounded-xl flex items-center space-x-3 text-xs text-pms-darkGreen font-bold animate-slideIn">

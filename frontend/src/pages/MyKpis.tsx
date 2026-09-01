@@ -14,6 +14,8 @@ import {
   FileCheck,
   ChevronRight
 } from 'lucide-react';
+import { RatingScaleLegend } from '../components/RatingScaleLegend';
+import { KpiRatingChart } from '../components/KpiRatingChart';
 
 export const MyKpis: React.FC = () => {
   const navigate = useNavigate();
@@ -264,6 +266,21 @@ export const MyKpis: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <RatingScaleLegend className="my-3" />
+
+      {assignment.kpis && assignment.kpis.length > 0 && (
+        <KpiRatingChart
+          title="My KPI Self Assessment Breakdown"
+          items={assignment.kpis.map(k => ({
+            kpiName: k.kpiName,
+            weightage: k.weightage,
+            selfRating: ratings[k.kpiId] !== undefined ? ratings[k.kpiId] : k.selfRating,
+            managerRating: k.managerRating,
+            hrRating: k.hrRating
+          }))}
+        />
+      )}
 
       {/* Floating Notifications (Save success/error) */}
       {saveSuccess && (

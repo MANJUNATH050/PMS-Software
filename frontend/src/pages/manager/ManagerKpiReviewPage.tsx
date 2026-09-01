@@ -15,6 +15,8 @@ import {
   Award,
   FileText
 } from 'lucide-react';
+import { RatingScaleLegend } from '../../components/RatingScaleLegend';
+import { KpiRatingChart } from '../../components/KpiRatingChart';
 
 export const ManagerKpiReviewPage: React.FC = () => {
   const { employeeId } = useParams<{ employeeId: string }>();
@@ -226,6 +228,22 @@ export const ManagerKpiReviewPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <RatingScaleLegend className="my-3" />
+
+      {reviewData?.kpis && reviewData.kpis.length > 0 && (
+        <KpiRatingChart
+          title={`KPI Performance Breakdown - ${reviewData.employee.name}`}
+          items={reviewData.kpis.map(k => ({
+            kpiName: k.kpiName,
+            weightage: k.weightage,
+            selfRating: k.selfRating,
+            managerRating: managerRatings[k.kpiId]?.rating !== undefined && managerRatings[k.kpiId]?.rating !== ''
+              ? Number(managerRatings[k.kpiId].rating)
+              : k.managerRating
+          }))}
+        />
+      )}
 
       {successMessage && (
         <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center space-x-3 text-sm font-medium">

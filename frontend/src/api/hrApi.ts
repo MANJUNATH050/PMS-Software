@@ -24,6 +24,11 @@ export const hrApi = {
     return response.data;
   },
 
+  createRole: async (name: string, description?: string): Promise<{ id: number; name: string; description: string }> => {
+    const response = await apiClient.post<{ id: number; name: string; description: string }>('/api/hr/roles', { name, description });
+    return response.data;
+  },
+
   getManagers: async (): Promise<ManagerOption[]> => {
     const response = await apiClient.get<ManagerOption[]>('/api/hr/managers');
     return response.data;
@@ -31,6 +36,11 @@ export const hrApi = {
 
   createManager: async (data: CreateManagerPayload): Promise<{ message: string; id: number }> => {
     const response = await apiClient.post<{ message: string; id: number }>('/api/hr/managers', data);
+    return response.data;
+  },
+
+  updateManager: async (id: number, data: Partial<CreateManagerPayload>): Promise<{ message: string; id: number }> => {
+    const response = await apiClient.put<{ message: string; id: number }>(`/api/hr/managers/${id}`, data);
     return response.data;
   },
 
@@ -80,8 +90,10 @@ export const hrApi = {
     return response.data;
   },
 
-  getLifecycleDetail: async (employeeId: number): Promise<EmployeeLifecycleData> => {
-    const response = await apiClient.get<EmployeeLifecycleData>(`/api/hr/lifecycle/${employeeId}`);
+  getLifecycleDetail: async (employeeId: number, cycleMonth?: string): Promise<EmployeeLifecycleData> => {
+    const response = await apiClient.get<EmployeeLifecycleData>(`/api/hr/lifecycle/${employeeId}`, {
+      params: cycleMonth ? { cycleMonth } : {}
+    });
     return response.data;
   },
 

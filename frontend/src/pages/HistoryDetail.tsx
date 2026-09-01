@@ -10,7 +10,8 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip as ChartTooltip,
-  ResponsiveContainer
+  ResponsiveContainer,
+  Legend
 } from 'recharts';
 import {
   ArrowLeft,
@@ -87,17 +88,39 @@ export const HistoryDetail: React.FC = () => {
     );
   }
 
-  // Map KPI data for Recharts chart
-  const chartData = assignment.kpis.map((kpi) => ({
-    name: kpi.kpiName.length > 15 ? kpi.kpiName.substring(0, 15) + '...' : kpi.kpiName,
-    'Self Rating': kpi.selfRating || 0,
-    'Manager Rating': kpi.managerRating || 0,
-    'HR/Final Rating': kpi.hrRating || 0,
+  // Dynamically combine Role KPIs and HR Review KPIs for the comparison chart
+  const roleKpis = (assignment.kpis || []).filter((kpi) => !kpi.kpiCategory || kpi.kpiCategory !== 'HR_REVIEW_KPI');
+
+  const allKpisForChart = [
+    ...roleKpis,
+    ...(assignment.hrReviewKpis || []).map((hr) => ({
+      kpiId: hr.kpiId,
+      kpiName: hr.kpiName,
+      description: hr.description,
+      weightage: hr.weightage,
+      selfRating: null,
+      managerRating: null,
+      hrRating: hr.hrRating !== null && hr.hrRating !== undefined ? hr.hrRating : (assignment.status === 'COMPLETED' || assignment.status === 'FINAL_RESULT_PUBLISHED' ? 5.0 : null),
+      kpiCategory: 'HR_REVIEW_KPI',
+      comments: hr.hrComments,
+      employeeComments: null,
+      managerComments: null,
+      hrComments: hr.hrComments
+    }))
+  ];
+
+  // Map all KPI data dynamically for Recharts chart (3 separate ratings)
+  const chartData = allKpisForChart.map((kpi) => ({
+    name: kpi.kpiName.length > 18 ? kpi.kpiName.substring(0, 18) + '...' : kpi.kpiName,
+    fullName: kpi.kpiName,
+    'Self Rating': kpi.selfRating !== null && kpi.selfRating !== undefined ? kpi.selfRating : null,
+    'Manager Rating': kpi.managerRating !== null && kpi.managerRating !== undefined ? kpi.managerRating : null,
+    'HR Rating': kpi.hrRating !== null && kpi.hrRating !== undefined ? kpi.hrRating : null,
   }));
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      
+
       {/* Back button & Page Title */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <button
@@ -107,7 +130,7 @@ export const HistoryDetail: React.FC = () => {
           <ArrowLeft size={16} />
           <span>Back to My Reports</span>
         </button>
-        
+
         <div className="flex items-center space-x-3">
           <button
             onClick={handleDownload}
@@ -117,7 +140,7 @@ export const HistoryDetail: React.FC = () => {
             <Download size={14} />
             <span>{downloading ? 'Downloading...' : 'Download PDF Report'}</span>
           </button>
-          
+
           <div className="flex items-center space-x-2 px-3 py-1.5 bg-slate-50 border border-slate-200 text-slate-500 text-[10px] font-bold rounded-lg shadow-inner uppercase">
             <Lock size={12} className="text-slate-400" />
             <span>Finalized & Locked</span>
@@ -127,7 +150,7 @@ export const HistoryDetail: React.FC = () => {
 
       {/* Main Grid: Info Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
+
         {/* Card 1: Employee details */}
         <div className="bg-white border border-slate-200/60 rounded-xl p-6 shadow-sm space-y-4">
           <h3 className="text-sm font-bold text-pms-gray pb-2 border-b border-slate-100 flex items-center space-x-2">
@@ -197,7 +220,7 @@ export const HistoryDetail: React.FC = () => {
         {/* Card 3: Score Summary Gauge */}
         <div className="bg-white border border-slate-200/60 rounded-xl p-6 shadow-sm flex flex-col justify-center items-center text-center space-y-3 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-24 h-24 bg-pms-green/5 rounded-full filter blur-xl -z-10"></div>
-          
+
           <div className="w-16 h-16 rounded-full bg-pms-lightGreen flex items-center justify-center text-pms-green shadow-inner">
             <Award size={32} />
           </div>
@@ -218,9 +241,27 @@ export const HistoryDetail: React.FC = () => {
 
       {/* Visual Chart Breakdown */}
       <div className="bg-white border border-slate-200/60 rounded-xl p-6 shadow-sm">
-        <h3 className="text-sm font-bold text-pms-gray mb-6 pb-2 border-b border-slate-100">
-          Evaluations Comparison Chart
-        </h3>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6 pb-2 border-b border-slate-100">
+          <h3 className="text-sm font-bold text-pms-gray">
+            Evaluations Comparison Chart
+          </h3>
+          {/* Custom Header Legend */}
+          <div className="flex items-center space-x-4 text-xs font-semibold">
+            <div className="flex items-center space-x-1.5">
+              <span className="w-3 h-3 rounded-xs bg-[#94A3B8]"></span>
+              <span className="text-slate-600">Self Rating</span>
+            </div>
+            <div className="flex items-center space-x-1.5">
+              <span className="w-3 h-3 rounded-xs bg-[#4A7637]"></span>
+              <span className="text-slate-600">Manager Rating</span>
+            </div>
+            <div className="flex items-center space-x-1.5">
+              <span className="w-3 h-3 rounded-xs bg-[#1ea855]"></span>
+              <span className="text-slate-600">HR Rating</span>
+            </div>
+          </div>
+        </div>
+
         <div className="h-72 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
@@ -230,10 +271,31 @@ export const HistoryDetail: React.FC = () => {
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="name" tick={{ fontSize: 10 }} />
               <YAxis domain={[0, 5]} tickCount={6} tick={{ fontSize: 10 }} />
-              <ChartTooltip />
+              <ChartTooltip
+                content={({ active, payload, label }) => {
+                  if (active && payload && payload.length) {
+                    const kpiFullName = payload[0]?.payload?.fullName || label;
+                    return (
+                      <div className="bg-white p-3 border border-slate-200 rounded-xl shadow-lg text-xs space-y-1.5">
+                        <p className="font-bold text-pms-gray border-b border-slate-100 pb-1">{kpiFullName}</p>
+                        {payload.map((entry: any, index: number) => (
+                          <div key={index} className="flex items-center justify-between space-x-4">
+                            <span style={{ color: entry.color }} className="font-semibold">{entry.name}:</span>
+                            <span className="font-bold text-slate-800">
+                              {entry.value !== null && entry.value !== undefined ? Number(entry.value).toFixed(1) : 'N/A'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
+              />
+              <Legend verticalAlign="bottom" height={36} iconType="circle" />
               <Bar dataKey="Self Rating" fill="#94A3B8" radius={[4, 4, 0, 0]} />
               <Bar dataKey="Manager Rating" fill="#4A7637" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="HR/Final Rating" fill="#6FC04A" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="HR Rating" fill="#1ea855" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -257,14 +319,24 @@ export const HistoryDetail: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-slate-100 text-xs">
-              {assignment.kpis.map((kpi) => (
+              {roleKpis.map((kpi) => (
                 <tr key={kpi.kpiId} className="hover:bg-slate-50/50 transition-colors">
                   <td className="px-6 py-5">
                     <p className="font-bold text-pms-gray text-sm">{kpi.kpiName}</p>
                     <p className="text-slate-500 mt-1 leading-relaxed">{kpi.description}</p>
-                    {kpi.comments && (
-                      <p className="text-[11px] text-slate-500 mt-2 bg-slate-50 p-2 border border-slate-200/50 rounded italic">
-                        <strong>Self Comments:</strong> {kpi.comments}
+                    {(kpi.employeeComments || kpi.comments) && (
+                      <p className="text-[11px] text-slate-600 mt-2 bg-slate-50 p-2 border border-slate-200/50 rounded italic">
+                        <strong>Self Comment:</strong> "{kpi.employeeComments || kpi.comments}"
+                      </p>
+                    )}
+                    {kpi.managerComments && (
+                      <p className="text-[11px] text-purple-700 mt-1 bg-purple-50/60 p-2 border border-purple-200/50 rounded italic">
+                        <strong>Manager Comment:</strong> "{kpi.managerComments}"
+                      </p>
+                    )}
+                    {kpi.hrComments && (
+                      <p className="text-[11px] text-blue-700 mt-1 bg-blue-50/60 p-2 border border-blue-200/50 rounded italic">
+                        <strong>HR Comment:</strong> "{kpi.hrComments}"
                       </p>
                     )}
                   </td>
@@ -336,6 +408,11 @@ export const HistoryDetail: React.FC = () => {
                     <tr key={hrKpi.kpiId} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-6 py-5 align-top">
                         <p className="font-bold text-pms-gray text-sm">{hrKpi.kpiName}</p>
+                        {hrKpi.hrComments && (
+                          <p className="text-[11px] text-blue-700 mt-1 bg-blue-50/60 p-2 border border-blue-200/50 rounded italic">
+                            <strong>HR Comment:</strong> "{hrKpi.hrComments}"
+                          </p>
+                        )}
                       </td>
                       <td className="px-6 py-5 align-top">
                         <p className="text-slate-600 leading-relaxed">{hrKpi.description}</p>
@@ -375,36 +452,6 @@ export const HistoryDetail: React.FC = () => {
           </div>
         )}
       </div>
-
-      {/* Review Remarks list */}
-      {assignment.reviews.length > 0 && (
-        <div className="bg-white border border-slate-200/60 rounded-xl p-6 shadow-sm space-y-4">
-          <h3 className="text-sm font-bold text-pms-gray pb-2 border-b border-slate-100">
-            Reviews & Evaluators remarks
-          </h3>
-          <div className="space-y-4">
-            {assignment.reviews.map((rev, idx) => (
-              <div key={idx} className="p-4 bg-slate-50 border border-slate-200/40 rounded-lg flex items-start space-x-3.5">
-                <div className="w-8 h-8 rounded-full bg-pms-green/20 text-pms-darkGreen font-bold flex items-center justify-center uppercase shrink-0">
-                  {rev.reviewerName.charAt(0)}
-                </div>
-                <div>
-                  <div className="flex items-baseline space-x-2">
-                    <span className="font-bold text-xs text-pms-gray">{rev.reviewerName}</span>
-                    <span className="text-[10px] text-slate-400 bg-slate-200/60 px-2 py-0.5 rounded font-semibold uppercase tracking-wider">
-                      {rev.reviewerRole}
-                    </span>
-                    <span className="text-[10px] text-slate-400">{rev.reviewDate}</span>
-                  </div>
-                  <p className="text-xs text-slate-650 mt-1.5 leading-relaxed italic">
-                    "{rev.comments}"
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
     </div>
   );

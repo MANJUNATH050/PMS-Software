@@ -20,35 +20,16 @@ import java.util.stream.Collectors;
 public class HrKpiService {
 
     private final KpiMasterRepository kpiMasterRepository;
+    private final DesignationService designationService;
 
-    public HrKpiService(KpiMasterRepository kpiMasterRepository) {
+    public HrKpiService(KpiMasterRepository kpiMasterRepository, DesignationService designationService) {
         this.kpiMasterRepository = kpiMasterRepository;
+        this.designationService = designationService;
     }
 
     @Transactional(readOnly = true)
     public List<String> getAllDesignations() {
-        List<KpiMaster> all = kpiMasterRepository.findAll();
-        Set<String> designations = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
-        all.forEach(k -> {
-            if (k.getDesignation() != null && !k.getDesignation().trim().isEmpty()
-                    && !"ALL".equalsIgnoreCase(k.getDesignation().trim())
-                    && !"GLOBAL".equalsIgnoreCase(k.getDesignation().trim())) {
-                designations.add(k.getDesignation().trim());
-            }
-        });
-        // Default standard designations if empty
-        if (designations.isEmpty()) {
-            designations.addAll(List.of(
-                    "Software Engineer",
-                    "Senior Software Engineer",
-                    "Tech Lead",
-                    "Engineering Manager",
-                    "QA Engineer",
-                    "HR Director",
-                    "HR Manager"
-            ));
-        }
-        return new ArrayList<>(designations);
+        return designationService.getAllDesignations();
     }
 
     @Transactional(readOnly = true)

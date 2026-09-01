@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import aseuroLogo from '../assets/aseuro-logo.png';
-import { getApiUrl } from '../api/apiClient';
 
 const criteria = 'Password should contain minimum 8 characters with alphabets, numbers and special characters.';
 const lockoutStorageKey = 'pms_login_lock_until';
@@ -90,7 +89,7 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const response = await fetch(getApiUrl('/api/auth/login'), {
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim(), identifier: email.trim(), password }),
@@ -103,10 +102,6 @@ export default function Login() {
       }
 
       applyLock(null);
-      if (data?.token) {
-        localStorage.setItem('pms_token', data.token);
-        localStorage.setItem('pms_access_token', data.token);
-      }
       signIn(data);
 
       const role = data.role || data.user?.role;
@@ -131,7 +126,7 @@ export default function Login() {
 
     setLoading(true);
     try {
-      const response = await fetch(getApiUrl('/api/auth/reset-password'), {
+      const response = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim(), newPassword }),

@@ -12,6 +12,7 @@ import { Profile } from './pages/Profile';
 import { SessionExpired } from './pages/SessionExpired';
 import { Unauthorized } from './pages/Unauthorized';
 import { NotFound } from './pages/NotFound';
+import ResetPassword from './pages/ResetPassword';
 
 // HR Module Pages
 import { HrDashboardPage } from './pages/hr/HrDashboardPage';
@@ -28,6 +29,7 @@ import { ManagerMyKpisPage } from './pages/manager/ManagerMyKpisPage';
 import { ManagerEmployeesPage } from './pages/manager/ManagerEmployeesPage';
 import { ManagerKpiReviewPage } from './pages/manager/ManagerKpiReviewPage';
 import { ManagerReportsPage } from './pages/manager/ManagerReportsPage';
+import { ManagerEmployeeReportsPage } from './pages/manager/ManagerEmployeeReportsPage';
 
 // Protected Route Wrapper
 const ProtectedRoute: React.FC<{ children: React.ReactNode; requiredRole?: string }> = ({ children, requiredRole }) => {
@@ -90,6 +92,7 @@ export const App: React.FC = () => {
           <Route path="/login" element={<Login />} />
           <Route path="/session-expired" element={<SessionExpired />} />
           <Route path="/unauthorized" element={<Unauthorized />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           {/* Protected Employee Routes */}
           <Route
@@ -187,6 +190,14 @@ export const App: React.FC = () => {
             element={
               <ProtectedRoute requiredRole="MANAGER">
                 <ManagerReportsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/manager/employee-reports"
+            element={
+              <ProtectedRoute requiredRole="MANAGER">
+                <ManagerEmployeeReportsPage />
               </ProtectedRoute>
             }
           />

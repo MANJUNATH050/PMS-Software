@@ -11,7 +11,9 @@ import {
   BarChart2,
   Sparkles,
   CheckCircle2,
-  X
+  X,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { authApi } from '../api/authApi';
 
@@ -30,11 +32,19 @@ export const Login: React.FC = () => {
   const [countdownSeconds, setCountdownSeconds] = useState<number>(0);
   const timerRef = useRef<any>(null);
 
-  // Forgot Password Modal
+  // Forgot / Reset Password Modal State
   const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
-  const [forgotSuccess, setForgotSuccess] = useState<string | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [forgotNotice, setForgotNotice] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
   const [forgotLoading, setForgotLoading] = useState(false);
+
+  const passwordCriteria = 'Password must be at least 8 characters long.';
+
+  const validPassword = (val: string) => val.length >= 8;
 
   // Format MM:SS for countdown timer
   const formatCountdown = (totalSecs: number) => {
@@ -64,7 +74,7 @@ export const Login: React.FC = () => {
     }, 1000);
   };
 
-  // Check backend lock status when email changes or on mount
+  // Check backend lock status when email changes
   useEffect(() => {
     if (!email.trim()) {
       setIsLocked(false);
@@ -102,15 +112,9 @@ export const Login: React.FC = () => {
     setError(null);
 
     try {
-      // Authenticate with backend (email + password only)
-      await login({ email: email.trim(), password });
+      const authenticatedUser = await login({ email: email.trim(), password });
+      const userRole = (authenticatedUser?.role || '').toUpperCase();
 
-      // Retrieve the authenticated user's role from backend response
-      const savedUserStr = localStorage.getItem('pms_user');
-      const savedUser = savedUserStr ? JSON.parse(savedUserStr) : null;
-      const userRole = (savedUser?.role || '').toUpperCase();
-
-      // Automatic Role-Based Dashboard Redirection
       if (userRole === 'ROLE_HR' || userRole === 'HR') {
         navigate('/hr/dashboard');
       } else if (userRole === 'ROLE_MANAGER' || userRole === 'MANAGER') {
@@ -122,15 +126,14 @@ export const Login: React.FC = () => {
       console.error('Login error:', err);
       const data = err.response?.data;
 
-      // Handle 5 Failed Attempts / 5-Minute Lockout
       if (err.response?.status === 423 || data?.locked) {
         const remaining = data?.remainingSeconds || 300;
         startCountdown(remaining);
-        setError(data?.message || 'Too many failed login attempts. Your account has been temporarily locked for 5 minutes.');
+        setError(data?.message || 'Too many failed login attempts. Please try again in 5 minutes.');
+      } else if (err.response?.status === 401) {
+        setError('Invalid email or password.');
       } else if (data?.message) {
         setError(data.message);
-      } else if (err.message) {
-        setError(err.message);
       } else {
         setError('Invalid email or password.');
       }
@@ -139,16 +142,78 @@ export const Login: React.FC = () => {
     }
   };
 
-  const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
+  const handleResetPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!forgotEmail.trim()) return;
+    setForgotNotice(null);
+
+    if (!forgotEmail.trim()) {
+      setForgotNotice({ type: 'error', message: 'Corporate email is required.' });
+      return;
+    }
+
+    if (!validPassword(newPassword)) {
+      setForgotNotice({ type: 'error', message: passwordCriteria });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setForgotNotice({ type: 'error', message: 'New password and confirm password must match.' });
+      return;
+    }
 
     setForgotLoading(true);
     try {
+      const res = await authApi.resetPassword({
+        token: '',
+        newPassword,
+        confirmPassword
+      });
+
+      setForgotNotice({
+        type: 'success',
+        message: res.message || 'Password reset successfully! You can now log in with your new password.'
+      });
+
+      // Reset form state
+      setEmail(forgotEmail.trim());
+      setPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+
+      setTimeout(() => {
+        setIsForgotModalOpen(false);
+        setForgotNotice(null);
+      }, 2000);
+    } catch (err: any) {
+      console.error('Reset error:', err);
+      setForgotNotice({
+        type: 'error',
+        message: err.response?.data?.message || 'Unable to reset password. Please check your details.'
+      });
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const handleSendLinkOnly = async () => {
+    if (!forgotEmail.trim()) {
+      setForgotNotice({ type: 'error', message: 'Corporate email is required to send recovery link.' });
+      return;
+    }
+
+    setForgotLoading(true);
+    setForgotNotice(null);
+    try {
       const res = await authApi.forgotPassword(forgotEmail.trim());
-      setForgotSuccess(res.message || 'If an account exists, a password reset link has been sent.');
-    } catch (err) {
-      setForgotSuccess('If an account exists, a password reset link has been sent.');
+      setForgotNotice({
+        type: 'success',
+        message: res.message || 'If an account exists, password recovery instructions have been sent.'
+      });
+    } catch (err: any) {
+      setForgotNotice({
+        type: 'success',
+        message: 'If an account exists, password recovery instructions have been sent.'
+      });
     } finally {
       setForgotLoading(false);
     }
@@ -245,10 +310,10 @@ export const Login: React.FC = () => {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Centered Interactive Login Card (520-580px desktop width) */}
+        {/* RIGHT COLUMN: Centered Interactive Login Card */}
         <div className="w-full lg:w-[48%] xl:w-[46%] flex items-center justify-center lg:justify-end">
           <div className="bg-white rounded-[32px] shadow-[0_25px_70px_rgba(0,0,0,0.06)] border border-slate-100 p-8 sm:p-10 lg:p-12 xl:p-14 w-full max-w-[540px] xl:max-w-[560px] 2xl:max-w-[580px] relative animate-fadeIn">
-            
+
             {/* Centered Top Official Aseuro Logo */}
             <div className="flex items-center justify-center space-x-3">
               <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white border border-emerald-200/90 flex items-center justify-center p-1.5 shadow-2xs">
@@ -293,7 +358,7 @@ export const Login: React.FC = () => {
 
             {/* Login Form */}
             <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
-              {/* Email Field (58-64px height) */}
+              {/* Email Field */}
               <div className="relative flex items-center h-[58px] sm:h-[62px] border border-slate-200 rounded-2xl bg-white px-5 focus-within:border-[#1ea855] focus-within:ring-2 focus-within:ring-emerald-500/20 transition-all shadow-2xs">
                 <Mail size={20} className="text-slate-400 shrink-0 mr-3.5" />
                 <input
@@ -309,7 +374,7 @@ export const Login: React.FC = () => {
                 />
               </div>
 
-              {/* Password Field (58-64px height) */}
+              {/* Password Field */}
               <div className="relative flex items-center h-[58px] sm:h-[62px] border border-slate-200 rounded-2xl bg-white px-5 focus-within:border-[#1ea855] focus-within:ring-2 focus-within:ring-emerald-500/20 transition-all shadow-2xs">
                 <Lock size={20} className="text-amber-500 shrink-0 mr-3.5" />
                 <input
@@ -332,18 +397,24 @@ export const Login: React.FC = () => {
                 </button>
               </div>
 
-              {/* Forgot Password Link (18-22px spacing below password) */}
+              {/* Forgot Password Link */}
               <div className="flex justify-end pt-1">
                 <button
                   type="button"
-                  onClick={() => setIsForgotModalOpen(true)}
+                  onClick={() => {
+                    setForgotEmail(email);
+                    setNewPassword('');
+                    setConfirmPassword('');
+                    setForgotNotice(null);
+                    setIsForgotModalOpen(true);
+                  }}
                   className="text-xs sm:text-sm font-bold text-[#1ea855] hover:text-emerald-700 transition-colors"
                 >
                   Forgot password?
                 </button>
               </div>
 
-              {/* Submit Button (60-64px height) */}
+              {/* Submit Button */}
               <div className="pt-2">
                 <button
                   type="submit"
@@ -364,7 +435,7 @@ export const Login: React.FC = () => {
               </div>
             </form>
 
-            {/* Bottom Security / Lock Rings Decorative Element (30-40px spacing) */}
+            {/* Bottom Security / Lock Rings Decorative Element */}
             <div className="mt-8 sm:mt-10 flex items-center justify-center">
               <div className="w-20 h-20 rounded-full border border-emerald-100/90 flex items-center justify-center">
                 <div className="w-14 h-14 rounded-full border border-emerald-200/80 flex items-center justify-center">
@@ -385,21 +456,21 @@ export const Login: React.FC = () => {
         &copy; {new Date().getFullYear()} Aseuro Technologies. All rights reserved.
       </div>
 
-      {/* Forgot Password Modal */}
+      {/* Password Recovery & Reset Modal */}
       {isForgotModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <div className="w-7 h-7 rounded-lg bg-emerald-50 text-[#1ea855] flex items-center justify-center font-bold">
-                  <Lock size={14} />
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-100 overflow-hidden animate-slideIn">
+            <div className="px-6 py-5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-50 text-[#1ea855] flex items-center justify-center font-bold border border-emerald-100">
+                  <Lock size={16} />
                 </div>
-                <h3 className="text-sm font-bold text-slate-800">Password Recovery</h3>
+                <h3 className="text-base font-bold text-slate-900">Password Recovery</h3>
               </div>
               <button
                 onClick={() => {
                   setIsForgotModalOpen(false);
-                  setForgotSuccess(null);
+                  setForgotNotice(null);
                 }}
                 className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
               >
@@ -407,19 +478,30 @@ export const Login: React.FC = () => {
               </button>
             </div>
 
-            <div className="p-6 space-y-4">
-              {forgotSuccess ? (
-                <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold rounded-xl flex items-center space-x-2.5">
-                  <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
-                  <span>{forgotSuccess}</span>
+            <div className="p-6 space-y-5">
+              {forgotNotice && (
+                <div className={`p-4 ${forgotNotice.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-700'} border text-xs font-semibold rounded-2xl flex items-center space-x-2.5 animate-fadeIn`}>
+                  {forgotNotice.type === 'success' ? (
+                    <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
+                  ) : (
+                    <AlertCircle size={18} className="text-rose-600 shrink-0" />
+                  )}
+                  <span>{forgotNotice.message}</span>
                 </div>
-              ) : (
-                <form onSubmit={handleForgotPasswordSubmit} className="space-y-4">
-                  <p className="text-xs text-slate-500">
-                    Enter your registered corporate email address and we'll send instructions to reset your password.
-                  </p>
-                  <div>
-                    <label htmlFor="forgot-email" className="block text-xs font-bold text-slate-700 mb-1">Corporate Email</label>
+              )}
+
+              <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
+                <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                  Enter your corporate email address and create a new secure password for your account.
+                </p>
+
+                {/* Corporate Email Field */}
+                <div>
+                  <label htmlFor="forgot-email" className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Corporate Email
+                  </label>
+                  <div className="relative flex items-center h-[50px] border border-slate-200 rounded-xl bg-white px-3.5 focus-within:border-[#1ea855] focus-within:ring-2 focus-within:ring-emerald-500/20 transition-all">
+                    <Mail size={18} className="text-slate-400 shrink-0 mr-2.5" />
                     <input
                       id="forgot-email"
                       type="email"
@@ -427,27 +509,100 @@ export const Login: React.FC = () => {
                       value={forgotEmail}
                       onChange={(e) => setForgotEmail(e.target.value)}
                       placeholder="e.g. employee@aseuro.com"
-                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:ring-2 focus:ring-emerald-500/30 focus:border-[#1ea855] outline-none"
+                      className="w-full text-xs font-medium text-slate-800 placeholder:text-slate-400 bg-transparent outline-none"
                     />
                   </div>
-                  <div className="pt-2 flex justify-end space-x-2">
+                </div>
+
+                {/* Create New Password Field */}
+                <div>
+                  <label htmlFor="new-password" className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Create New Password
+                  </label>
+                  <div className="relative flex items-center h-[50px] border border-slate-200 rounded-xl bg-white px-3.5 focus-within:border-[#1ea855] focus-within:ring-2 focus-within:ring-emerald-500/20 transition-all">
+                    <Lock size={18} className="text-amber-500 shrink-0 mr-2.5" />
+                    <input
+                      id="new-password"
+                      type={showNewPassword ? 'text' : 'password'}
+                      required
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Create a new password (min. 8 chars)"
+                      className="w-full text-xs font-medium text-slate-800 placeholder:text-slate-400 bg-transparent outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="text-slate-400 hover:text-slate-600 ml-2"
+                    >
+                      {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Confirm New Password Field */}
+                <div>
+                  <label htmlFor="confirm-password" className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Confirm New Password
+                  </label>
+                  <div className="relative flex items-center h-[50px] border border-slate-200 rounded-xl bg-white px-3.5 focus-within:border-[#1ea855] focus-within:ring-2 focus-within:ring-emerald-500/20 transition-all">
+                    <Lock size={18} className="text-amber-500 shrink-0 mr-2.5" />
+                    <input
+                      id="confirm-password"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      required
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Confirm new password"
+                      className="w-full text-xs font-medium text-slate-800 placeholder:text-slate-400 bg-transparent outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="text-slate-400 hover:text-slate-600 ml-2"
+                    >
+                      {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Form Action Buttons */}
+                <div className="pt-3 space-y-2">
+                  <button
+                    type="submit"
+                    disabled={forgotLoading}
+                    className="w-full h-[48px] bg-[#1ea855] hover:bg-[#188c46] active:scale-[0.99] text-white font-bold text-xs sm:text-sm rounded-xl shadow-md shadow-emerald-500/20 flex items-center justify-center space-x-2 transition-all disabled:opacity-50"
+                  >
+                    {forgotLoading ? (
+                      <span>Saving Password...</span>
+                    ) : (
+                      <>
+                        <span>Save New Password</span>
+                        <ArrowRight size={16} />
+                      </>
+                    )}
+                  </button>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <button
+                      type="button"
+                      onClick={handleSendLinkOnly}
+                      disabled={forgotLoading}
+                      className="text-[11px] font-semibold text-slate-500 hover:text-[#1ea855] transition-colors"
+                    >
+                      Send Email Link Instead
+                    </button>
+
                     <button
                       type="button"
                       onClick={() => setIsForgotModalOpen(false)}
-                      className="px-4 py-2 border border-slate-200 text-slate-600 text-xs font-bold rounded-xl hover:bg-slate-50"
+                      className="text-[11px] font-semibold text-slate-400 hover:text-slate-600 transition-colors"
                     >
                       Cancel
                     </button>
-                    <button
-                      type="submit"
-                      disabled={forgotLoading}
-                      className="px-4 py-2 bg-[#1ea855] hover:bg-[#188c46] text-white text-xs font-bold rounded-xl shadow-xs"
-                    >
-                      {forgotLoading ? 'Sending...' : 'Send Recovery Link'}
-                    </button>
                   </div>
-                </form>
-              )}
+                </div>
+              </form>
             </div>
           </div>
         </div>

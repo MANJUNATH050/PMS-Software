@@ -3,7 +3,7 @@ import { managerApi } from '../../api/managerApi';
 import { ManagerReportData, ManagerEmployeeItem } from '../../types';
 import { ManagerReportDetailModal } from './ManagerReportDetailModal';
 import {
-  FileText,
+  ClipboardList,
   Filter,
   Clock,
   Lock,
@@ -11,12 +11,11 @@ import {
   Search,
   Eye,
   Download,
-  CheckCircle2,
   Users,
-  BarChart3
+  Award
 } from 'lucide-react';
 
-export const ManagerReportsPage: React.FC = () => {
+export const ManagerEmployeeReportsPage: React.FC = () => {
   const [reportsData, setReportsData] = useState<ManagerReportData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,8 +40,8 @@ export const ManagerReportsPage: React.FC = () => {
       setReportsData(data);
       setError(null);
     } catch (err: any) {
-      console.error('Failed to load manager reports', err);
-      setError('Unable to load team appraisal reports.');
+      console.error('Failed to load employee reports', err);
+      setError('Unable to load assigned employee performance reports.');
     } finally {
       setLoading(false);
     }
@@ -88,12 +87,23 @@ export const ManagerReportsPage: React.FC = () => {
     }
   };
 
+  const deriveCategory = (score: number | null, grade: string | null) => {
+    if (grade) return grade;
+    if (!score) return 'Pending Finalization';
+    if (score >= 4.5) return 'Outstanding Performance';
+    if (score >= 4.0) return 'Excellent Performance';
+    if (score >= 3.5) return 'Very Good Performance';
+    if (score >= 3.0) return 'Good Performance';
+    if (score >= 2.0) return 'Needs Improvement';
+    return 'Unsatisfactory';
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[450px]">
         <div className="flex flex-col items-center space-y-3">
           <div className="w-10 h-10 border-4 border-pms-green border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-slate-500 font-medium">Loading Manager Reports...</p>
+          <p className="text-slate-500 font-medium">Loading Assigned Employee Reports...</p>
         </div>
       </div>
     );
@@ -104,13 +114,13 @@ export const ManagerReportsPage: React.FC = () => {
       {/* Header */}
       <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row md:items-center md:justify-between gap-6">
         <div>
-          <div className="flex items-center space-x-2 text-xs font-bold text-purple-600 uppercase tracking-wider mb-2">
-            <BarChart3 size={16} />
-            <span>Manager Portal • Assigned Direct Reports</span>
+          <div className="flex items-center space-x-2 text-xs font-bold text-blue-600 uppercase tracking-wider mb-2">
+            <ClipboardList size={16} />
+            <span>Manager Portal • Direct Reports Performance Documents</span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Manager Reports</h1>
+          <h1 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Employee Reports</h1>
           <p className="text-slate-500 text-sm mt-1">
-            Access read-only performance reports and PDF exports for employees assigned directly to you.
+            View detailed performance evaluations and download official PDF reports for your assigned team members.
           </p>
         </div>
       </div>
@@ -122,52 +132,25 @@ export const ManagerReportsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Summary KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Assigned Reports</span>
-          <div className="text-3xl font-black text-slate-800 mt-2">{reportsData?.totalAssigned || 0}</div>
-          <span className="text-xs text-blue-600 font-semibold block mt-1">Total Team Size</span>
-        </div>
-
-        <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Self Submitted</span>
-          <div className="text-3xl font-black text-slate-800 mt-2">{reportsData?.selfAssessmentCompletedCount || 0}</div>
-          <span className="text-xs text-emerald-600 font-semibold block mt-1">Employees Completed</span>
-        </div>
-
-        <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Manager Reviews</span>
-          <div className="text-3xl font-black text-slate-800 mt-2">{reportsData?.managerReviewCompletedCount || 0}</div>
-          <span className="text-xs text-purple-600 font-semibold block mt-1">Submitted to HR</span>
-        </div>
-
-        <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Finalized Cycles</span>
-          <div className="text-3xl font-black text-slate-800 mt-2">{reportsData?.finalizedRecordsCount || 0}</div>
-          <span className="text-xs text-pms-darkGreen font-semibold block mt-1">HR Published Records</span>
-        </div>
-      </div>
-
       {/* Filters Bar */}
       <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs space-y-4">
         <div className="flex items-center space-x-2 text-sm font-bold text-slate-700">
           <Filter size={18} className="text-slate-400" />
-          <span>Report Filters</span>
+          <span>Filter Assigned Employee Reports</span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Employee Filter */}
           <div>
-            <label htmlFor="mgr-report-filter-employee" className="text-xs font-bold text-slate-500 uppercase block mb-1.5">Filter by Employee</label>
+            <label htmlFor="emp-report-filter-employee" className="text-xs font-bold text-slate-500 uppercase block mb-1.5">Employee</label>
             <select
-              id="mgr-report-filter-employee"
+              id="emp-report-filter-employee"
               name="filterEmployee"
               value={selectedEmployeeIdFilter}
               onChange={(e) => setSelectedEmployeeIdFilter(e.target.value)}
               className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-pms-green focus:bg-white"
             >
-              <option value="ALL">All Assigned Members ({reportsData?.assignedEmployees.length})</option>
+              <option value="ALL">All Direct Reports ({reportsData?.assignedEmployees.length})</option>
               {reportsData?.assignedEmployees.map((e) => (
                 <option key={e.id} value={e.id.toString()}>
                   {e.name} ({e.employeeCode})
@@ -178,9 +161,9 @@ export const ManagerReportsPage: React.FC = () => {
 
           {/* Month Filter */}
           <div>
-            <label htmlFor="mgr-report-filter-month" className="text-xs font-bold text-slate-500 uppercase block mb-1.5">Appraisal Cycle</label>
+            <label htmlFor="emp-report-filter-month" className="text-xs font-bold text-slate-500 uppercase block mb-1.5">Appraisal Cycle</label>
             <select
-              id="mgr-report-filter-month"
+              id="emp-report-filter-month"
               name="filterMonth"
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
@@ -197,9 +180,9 @@ export const ManagerReportsPage: React.FC = () => {
 
           {/* Status Filter */}
           <div>
-            <label htmlFor="mgr-report-filter-status" className="text-xs font-bold text-slate-500 uppercase block mb-1.5">PMS Status</label>
+            <label htmlFor="emp-report-filter-status" className="text-xs font-bold text-slate-500 uppercase block mb-1.5">PMS Status</label>
             <select
-              id="mgr-report-filter-status"
+              id="emp-report-filter-status"
               name="filterStatus"
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
@@ -214,13 +197,13 @@ export const ManagerReportsPage: React.FC = () => {
 
           {/* Text Search */}
           <div>
-            <label htmlFor="mgr-report-search-query" className="text-xs font-bold text-slate-500 uppercase block mb-1.5">Keyword Search</label>
+            <label htmlFor="emp-report-search-query" className="text-xs font-bold text-slate-500 uppercase block mb-1.5">Search</label>
             <div className="relative">
               <input
-                id="mgr-report-search-query"
+                id="emp-report-search-query"
                 name="searchQuery"
                 type="text"
-                placeholder="Search employee..."
+                placeholder="Search..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-pms-green focus:bg-white"
@@ -231,26 +214,27 @@ export const ManagerReportsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Reports Table */}
+      {/* Employee Reports List / Cards & Table */}
       <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/70 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                <th className="py-4 px-6">Employee Info</th>
+                <th className="py-4 px-6">Employee Name & ID</th>
                 <th className="py-4 px-6">Designation & Department</th>
-                <th className="py-4 px-6">Cycle</th>
+                <th className="py-4 px-6">Appraisal Cycle</th>
                 <th className="py-4 px-6">PMS Status</th>
                 <th className="py-4 px-6 text-center">Final Score</th>
+                <th className="py-4 px-6 text-center">Performance Category</th>
                 <th className="py-4 px-6 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm">
               {filteredEmployees.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400">
-                    <FileText size={36} className="mx-auto mb-3 text-slate-300" />
-                    <p className="font-semibold">No employee reports match the filter criteria.</p>
+                  <td colSpan={7} className="py-12 text-center text-slate-400">
+                    <ClipboardList size={36} className="mx-auto mb-3 text-slate-300" />
+                    <p className="font-semibold">No assigned employee reports match the selected filters.</p>
                   </td>
                 </tr>
               ) : (
@@ -286,21 +270,11 @@ export const ManagerReportsPage: React.FC = () => {
                           <span>{emp.status.replace(/_/g, ' ')}</span>
                         </span>
                       </td>
-                      <td className="py-4 px-6 text-center">
-                        {emp.overallScore != null ? (
-                          <div>
-                            <span className="font-black text-pms-darkGreen text-base">
-                              {emp.overallScore.toFixed(2)} / 5.0
-                            </span>
-                            {emp.performanceGrade && (
-                              <span className="block text-[11px] font-semibold text-slate-500">
-                                {emp.performanceGrade}
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-slate-400 text-xs font-medium">Pending Finalization</span>
-                        )}
+                      <td className="py-4 px-6 text-center font-black text-pms-darkGreen">
+                        {emp.overallScore != null ? `${emp.overallScore.toFixed(2)} / 5.0` : 'N/A'}
+                      </td>
+                      <td className="py-4 px-6 text-center text-xs font-extrabold text-slate-700">
+                        {deriveCategory(emp.overallScore, emp.performanceGrade)}
                       </td>
                       <td className="py-4 px-6 text-center">
                         <div className="flex items-center justify-center space-x-2">
@@ -331,7 +305,7 @@ export const ManagerReportsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Report Detail Modal */}
+      {/* Employee Detailed Report Modal */}
       {viewingEmployeeId && (
         <ManagerReportDetailModal
           employeeId={viewingEmployeeId}
@@ -342,4 +316,4 @@ export const ManagerReportsPage: React.FC = () => {
   );
 };
 
-export default ManagerReportsPage;
+export default ManagerEmployeeReportsPage;

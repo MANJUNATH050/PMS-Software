@@ -4,6 +4,7 @@ import { reportApi } from '../api/reportApi';
 import { PmsHistory } from '../types';
 import { FileText, Download, Eye, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { RatingScaleLegend } from '../components/RatingScaleLegend';
 
 export const MyReports: React.FC = () => {
   const navigate = useNavigate();
@@ -75,6 +76,8 @@ export const MyReports: React.FC = () => {
           Access finalized historical performance reports and download official PDF performance certifications.
         </p>
       </div>
+
+      <RatingScaleLegend className="my-3" />
 
       {reports.length === 0 ? (
         <div className="bg-white border border-slate-200/60 rounded-xl p-12 text-center shadow-sm">

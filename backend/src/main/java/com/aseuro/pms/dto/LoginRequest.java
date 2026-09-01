@@ -1,39 +1,31 @@
 package com.aseuro.pms.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class LoginRequest {
     private String email;
-    private String identifier;
     private String password;
     private String role;
 
-    public LoginRequest(String email, String password, String role) {
-        this.email = email;
-        this.password = password;
-        this.role = role;
-    }
-
-    public String getEmail() {
-        if (email != null && !email.trim().isEmpty()) {
-            return email;
-        }
-        return identifier;
-    }
-
+    @JsonIgnore
     public String email() {
-        return getEmail();
+        return this.email;
     }
 
+    @JsonIgnore
     public String password() {
         return this.password;
     }
 
+    @JsonIgnore
     public String role() {
         return this.role;
     }

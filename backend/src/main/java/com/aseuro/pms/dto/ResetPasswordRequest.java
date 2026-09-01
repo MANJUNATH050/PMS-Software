@@ -1,19 +1,30 @@
 package com.aseuro.pms.dto;
 
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-public record ResetPasswordRequest(
-        @NotBlank(message = "Email is required")
-        @Email(message = "Please enter a valid email address")
-        String email,
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class ResetPasswordRequest {
+    private String token;
+    private String newPassword;
+    private String confirmPassword;
 
-        @NotBlank(message = "Password is required")
-        @Pattern(
-                regexp = "^(?=.*[A-Za-z])(?=.*\\d)(?=.*[^A-Za-z\\d]).{8,}$",
-                message = "Password should meet the criteria: alphabets, numbers, and special characters."
-        )
-        String newPassword
-) {
+    // Legacy field kept for backward compatibility
+    private String email;
+
+    @JsonIgnore
+    public String token() { return this.token; }
+
+    @JsonIgnore
+    public String newPassword() { return this.newPassword; }
+
+    @JsonIgnore
+    public String confirmPassword() { return this.confirmPassword; }
+
+    @JsonIgnore
+    public String email() { return this.email; }
 }

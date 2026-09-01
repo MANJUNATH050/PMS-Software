@@ -11,4 +11,5 @@ import java.util.List;
 public interface PmsHistoryRepository extends JpaRepository<PmsHistory, Long> {
     List<PmsHistory> findByEmployee(Employee employee);
     List<PmsHistory> findByEmployeeOrderByCycleMonthDesc(Employee employee);
+    java.util.Optional<PmsHistory> findByEmployeeAndCycleMonth(Employee employee, String cycleMonth);
 }

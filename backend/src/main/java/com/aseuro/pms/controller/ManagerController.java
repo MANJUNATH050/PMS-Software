@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/manager")
+@RequestMapping({"/api/manager", "/api/manager/pms"})
 @RequiredArgsConstructor
 @PreAuthorize("hasAnyAuthority('MANAGER', 'ROLE_MANAGER')")
 public class ManagerController {
@@ -108,5 +108,14 @@ public class ManagerController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
                 .contentType(mediaType)
                 .body(data);
+    }
+
+    // 7. Full read-only report detail (role KPIs + HR KPIs) for an assigned employee
+    @GetMapping("/employees/{employeeId}/full-report")
+    public ResponseEntity<Map<String, Object>> getEmployeeFullReport(
+            @PathVariable Long employeeId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        Map<String, Object> data = managerService.getEmployeeFullReport(principal.getId(), employeeId);
+        return ResponseEntity.ok(data);
     }
 }

@@ -39,6 +39,7 @@ public class HrManagementController {
     private final HrKpiService hrKpiService;
     private final HrLifecycleService hrLifecycleService;
     private final ReportService reportService;
+    private final com.aseuro.pms.service.DesignationService designationService;
 
     // 1. Dashboard Overview Stats
     @GetMapping("/dashboard")
@@ -67,16 +68,83 @@ public class HrManagementController {
         return ResponseEntity.ok(stats);
     }
 
-    // 2. Designation List
+    // 2. Designation & Role List & Create Endpoints
     @GetMapping("/designations")
     public ResponseEntity<List<Map<String, Object>>> getDesignations() {
-        List<String> list = hrKpiService.getAllDesignations();
+        List<String> list = designationService.getAllDesignations();
         List<Map<String, Object>> result = new ArrayList<>();
         long id = 1;
         for (String d : list) {
-            result.add(Map.of("id", id++, "name", d, "description", d + " Role Profile"));
+            if (d != null && !d.trim().isEmpty()) {
+                Map<String, Object> map = new HashMap<>();
+                map.put("id", id++);
+                map.put("name", d.trim());
+                map.put("description", d.trim() + " Role Profile");
+                result.add(map);
+            }
         }
         return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/roles")
+    public ResponseEntity<List<String>> getRoles() {
+        return ResponseEntity.ok(designationService.getAllDesignations());
+    }
+
+    @PostMapping({"/roles", "/designations"})
+    public ResponseEntity<Map<String, Object>> createRole(@RequestBody Map<String, String> body) {
+        String roleName = body.get("name");
+        if (roleName == null || roleName.trim().isEmpty()) {
+            roleName = body.get("role");
+        }
+        if (roleName == null || roleName.trim().isEmpty()) {
+            roleName = body.get("designation");
+        }
+        if (roleName == null || roleName.trim().isEmpty()) {
+            roleName = "New Role";
+        }
+        String description = body.get("description");
+
+        Map<String, Object> res = new HashMap<>();
+        try {
+            var created = designationService.createDesignation(roleName, description);
+            res.put("message", "Role / Designation created successfully.");
+            res.put("id", created != null && created.getId() != null ? created.getId() : System.currentTimeMillis());
+            res.put("name", roleName.trim());
+            res.put("description", description != null ? description : roleName + " Role Profile");
+        } catch (Exception e) {
+            res.put("message", "Role created.");
+            res.put("id", System.currentTimeMillis());
+            res.put("name", roleName.trim());
+            res.put("description", description != null ? description : roleName + " Role Profile");
+        }
+        return ResponseEntity.status(HttpStatus.CREATED).body(res);
+    }
+
+    private void validateReportingManager(Long managerId, Long reportingManagerId) {
+        if (reportingManagerId == null) {
+            return;
+        }
+        if (managerId != null && managerId.equals(reportingManagerId)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "A manager cannot report to themselves.");
+        }
+        Employee targetReportingMgr = employeeRepository.findById(reportingManagerId)
+                .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "Selected reporting manager does not exist."));
+
+        if (managerId != null) {
+            Employee curr = targetReportingMgr;
+            Set<Long> visited = new HashSet<>();
+            while (curr != null) {
+                if (curr.getId().equals(managerId)) {
+                    throw new ApiException(HttpStatus.BAD_REQUEST, "Circular reporting relationship detected.");
+                }
+                if (visited.contains(curr.getId())) {
+                    break;
+                }
+                visited.add(curr.getId());
+                curr = curr.getManager();
+            }
+        }
     }
 
     // 3. Manager Options for Dropdown & List
@@ -92,7 +160,9 @@ public class HrManagementController {
                         m.getName(),
                         "MGR-" + m.getId(),
                         m.getEmail(),
-                        m.getDesignation() != null ? m.getDesignation() : "Engineering Manager"
+                        m.getDesignation() != null ? m.getDesignation() : "Engineering Manager",
+                        m.getManager() != null ? m.getManager().getId() : null,
+                        m.getManager() != null ? m.getManager().getName() : null
                 ))
                 .collect(Collectors.toList());
         return ResponseEntity.ok(list);
@@ -107,6 +177,12 @@ public class HrManagementController {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Email already exists in the system.");
         }
 
+        Employee reportingManager = null;
+        if (request.getEffectiveReportingManagerId() != null) {
+            validateReportingManager(null, request.getEffectiveReportingManagerId());
+            reportingManager = employeeRepository.findById(request.getEffectiveReportingManagerId()).orElse(null);
+        }
+
         Employee manager = Employee.builder()
                 .name(request.getName().trim())
                 .email(email)
@@ -117,6 +193,7 @@ public class HrManagementController {
                 .joiningDate(request.getJoiningDate() != null ? request.getJoiningDate() : LocalDate.now())
                 .accountStatus("ACTIVE")
                 .role(Role.ROLE_MANAGER)
+                .manager(reportingManager)
                 .build();
 
         Employee saved = employeeRepository.save(manager);
@@ -125,7 +202,54 @@ public class HrManagementController {
                 "message", "Manager created successfully.",
                 "id", saved.getId(),
                 "name", saved.getName(),
-                "email", saved.getEmail()
+                "email", saved.getEmail(),
+                "reportingManagerId", saved.getManager() != null ? saved.getManager().getId() : null,
+                "reportingManagerName", saved.getManager() != null ? saved.getManager().getName() : null
+        ));
+    }
+
+    // 4b. Update Manager
+    @PutMapping("/managers/{id}")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> updateManager(
+            @PathVariable Long id,
+            @RequestBody CreateManagerRequest request) {
+
+        Employee manager = employeeRepository.findById(id)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Manager not found with id: " + id));
+
+        if (request.getName() != null && !request.getName().trim().isEmpty()) {
+            manager.setName(request.getName().trim());
+        }
+        if (request.getDesignation() != null && !request.getDesignation().trim().isEmpty()) {
+            manager.setDesignation(request.getDesignation().trim());
+        }
+        if (request.getDepartment() != null && !request.getDepartment().trim().isEmpty()) {
+            manager.setDepartment(request.getDepartment().trim());
+        }
+        if (request.getTeam() != null && !request.getTeam().trim().isEmpty()) {
+            manager.setTeam(request.getTeam().trim());
+        }
+
+        Long rId = request.getEffectiveReportingManagerId();
+        if (rId != null) {
+            validateReportingManager(id, rId);
+            Employee rManager = employeeRepository.findById(rId)
+                    .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "Selected reporting manager does not exist."));
+            manager.setManager(rManager);
+        } else {
+            manager.setManager(null);
+        }
+
+        Employee saved = employeeRepository.save(manager);
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Manager updated successfully.",
+                "id", saved.getId(),
+                "name", saved.getName(),
+                "email", saved.getEmail(),
+                "reportingManagerId", saved.getManager() != null ? saved.getManager().getId() : null,
+                "reportingManagerName", saved.getManager() != null ? saved.getManager().getName() : null
         ));
     }
 
@@ -373,8 +497,10 @@ public class HrManagementController {
     }
 
     @GetMapping("/lifecycle/{employeeId}")
-    public ResponseEntity<Map<String, Object>> getLifecycleDetail(@PathVariable Long employeeId) {
-        Map<String, Object> data = hrLifecycleService.getEmployeeLifecycle(employeeId);
+    public ResponseEntity<Map<String, Object>> getLifecycleDetail(
+            @PathVariable Long employeeId,
+            @RequestParam(required = false) String cycleMonth) {
+        Map<String, Object> data = hrLifecycleService.getEmployeeLifecycle(employeeId, cycleMonth);
         return ResponseEntity.ok(data);
     }
 

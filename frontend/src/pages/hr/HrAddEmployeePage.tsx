@@ -37,18 +37,23 @@ export const HrAddEmployeePage: React.FC = () => {
   const [joiningDate, setJoiningDate] = useState('2026-08-27');
   const [role, setRole] = useState<'EMPLOYEE' | 'MANAGER'>('EMPLOYEE');
 
+  // Add New Role state
+  const [showAddRoleModal, setShowAddRoleModal] = useState(false);
+  const [newRoleName, setNewRoleName] = useState('');
+  const [newRoleDesc, setNewRoleDesc] = useState('');
+  const [creatingRole, setCreatingRole] = useState(false);
+
   // UI state
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Load designations and managers from database
+  const loadData = () => {
     Promise.all([hrApi.getDesignations(), hrApi.getManagers()])
       .then(([desigs, mgrs]) => {
         setDesignations(desigs);
         setManagers(mgrs);
-        if (desigs.length > 0) {
+        if (desigs.length > 0 && !designation) {
           const initialDesig = desigs[0].name;
           setDesignation(initialDesig);
           fetchKpisForDesignation(initialDesig);
@@ -58,7 +63,33 @@ export const HrAddEmployeePage: React.FC = () => {
         console.error(err);
         setError('Failed to load designations and managers from database.');
       });
+  };
+
+  useEffect(() => {
+    loadData();
   }, []);
+
+  const handleCreateRole = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRoleName.trim()) return;
+    setCreatingRole(true);
+    try {
+      const res = await hrApi.createRole(newRoleName.trim(), newRoleDesc.trim());
+      const updatedDesigs = await hrApi.getDesignations();
+      setDesignations(updatedDesigs);
+      setDesignation(res.name);
+      fetchKpisForDesignation(res.name);
+      setShowAddRoleModal(false);
+      setNewRoleName('');
+      setNewRoleDesc('');
+      setSuccess(`New Role "${res.name}" created and stored in database successfully!`);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.response?.data?.message || 'Failed to create new role.');
+    } finally {
+      setCreatingRole(false);
+    }
+  };
 
   const fetchKpisForDesignation = (desigName: string) => {
     if (!desigName) return;
@@ -264,9 +295,18 @@ export const HrAddEmployeePage: React.FC = () => {
 
             {/* Designation Dropdown (DB Driven) */}
             <div>
-              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
-                Designation / Role *
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">
+                  Designation / Role *
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowAddRoleModal(true)}
+                  className="text-xs font-bold text-pms-green hover:text-pms-darkGreen underline flex items-center gap-1"
+                >
+                  + Add New Role
+                </button>
+              </div>
               <select
                 value={designation}
                 onChange={(e) => handleDesignationChange(e.target.value)}
@@ -398,6 +438,67 @@ export const HrAddEmployeePage: React.FC = () => {
           </div>
         </form>
       </div>
+
+      {/* Add New Role Modal */}
+      {showAddRoleModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-fadeIn">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+              <h3 className="text-base font-bold text-pms-gray">Create New Role / Designation</h3>
+              <button
+                type="button"
+                onClick={() => setShowAddRoleModal(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleCreateRole} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">
+                  Role / Designation Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newRoleName}
+                  onChange={(e) => setNewRoleName(e.target.value)}
+                  placeholder="e.g. Cloud Architect, Data Engineer"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-pms-green/50"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">
+                  Description (Optional)
+                </label>
+                <textarea
+                  value={newRoleDesc}
+                  onChange={(e) => setNewRoleDesc(e.target.value)}
+                  placeholder="Role profile description..."
+                  rows={3}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-pms-green/50"
+                />
+              </div>
+              <div className="pt-3 flex justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddRoleModal(false)}
+                  className="px-4 py-2 bg-slate-100 text-slate-700 text-xs font-bold rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creatingRole}
+                  className="px-5 py-2 bg-pms-green hover:bg-pms-darkGreen text-white text-xs font-bold rounded-lg shadow-xs"
+                >
+                  {creatingRole ? 'Creating...' : 'Save Role to Database'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

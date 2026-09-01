@@ -1,9 +1,23 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShieldAlert, ArrowLeft } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 export const Unauthorized: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const handleReturn = () => {
+    const isHr = user?.role === 'ROLE_HR' || user?.role === 'HR';
+    const isManager = user?.role === 'ROLE_MANAGER' || user?.role === 'MANAGER';
+    if (isHr) {
+      navigate('/hr/dashboard');
+    } else if (isManager) {
+      navigate('/manager/dashboard');
+    } else {
+      navigate('/dashboard');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -16,7 +30,7 @@ export const Unauthorized: React.FC = () => {
           You are not authorized to view this resource. HR and Manager portals are restricted to authorized personnel.
         </p>
         <button
-          onClick={() => navigate('/dashboard')}
+          onClick={handleReturn}
           className="w-full flex justify-center items-center space-x-2 py-2.5 px-4 bg-pms-green hover:bg-pms-darkGreen text-white font-semibold rounded-lg text-sm transition-colors shadow"
         >
           <ArrowLeft size={16} />
