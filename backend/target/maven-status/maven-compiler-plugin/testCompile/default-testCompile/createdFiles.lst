@@ -1,5 +1,7 @@
+com\aseuro\pms\controller\HrAuthenticationTest.class
+com\aseuro\pms\service\HrLifecycleServiceTest.class
 com\aseuro\pms\service\EmployeeOnboardingEmailServiceTest.class
 com\aseuro\pms\service\HrKpiServiceTest.class
+com\aseuro\pms\service\EmployeeOnboardingEmailServiceLiveTest.class
 com\aseuro\pms\service\PmsServiceTest.class
 com\aseuro\pms\controller\AuthControllerTest.class
-com\aseuro\pms\service\HrLifecycleServiceTest.class

@@ -49,34 +49,10 @@ public class DatabaseSeeder implements CommandLineRunner {
         @Transactional
         public void run(String... args) throws Exception {
                 seedKpiMasterData();
+                ensureHrAccount();
 
                 if (employeeRepository.count() > 0) {
-                        // Ensure HR user exists with correct password Hr@12345 and active assignment
-                        employeeRepository.findByEmail("hr@aseuro.com").ifPresent(hr -> {
-                                hr.setPassword(passwordEncoder.encode("Hr@12345"));
-                                hr.setRole(Role.ROLE_HR);
-                                if (hr.getDesignation() == null || hr.getDesignation().trim().isEmpty()) {
-                                        hr.setDesignation("HR Director");
-                                }
-                                employeeRepository.findByEmail("manager@aseuro.com").ifPresent(hr::setManager);
-                                employeeRepository.save(hr);
-
-                                List<PmsAssignment> hrAssignments = pmsAssignmentRepository.findByEmployee(hr);
-                                boolean hasAug2026 = hrAssignments.stream()
-                                                .anyMatch(a -> "August 2026".equals(a.getCycleMonth()));
-                                if (!hasAug2026) {
-                                        seedHrAugustAssignment(hr);
-                                } else {
-                                        for (PmsAssignment a : hrAssignments) {
-                                                if ("August 2026".equals(a.getCycleMonth())) {
-                                                        List<PmsKpi> kpis = pmsKpiRepository.findByAssignment(a);
-                                                        if (kpis.isEmpty()) {
-                                                                seedHrAugustKpisOnly(a);
-                                                        }
-                                                }
-                                        }
-                                }
-                        });
+                        // Ensure Manager user has active August 2026 assignment & known password Manager@12345
 
                         // Ensure Manager user has active August 2026 assignment & known password Manager@12345
                         employeeRepository.findByEmail("manager@aseuro.com").ifPresent(mgr -> {
@@ -951,5 +927,61 @@ public class DatabaseSeeder implements CommandLineRunner {
                                                 .weightage(20.0)
                                                 .build());
                 pmsKpiRepository.saveAll(mgrKpis);
+        }
+
+        private void ensureHrAccount() {
+                Optional<Employee> hrOpt = employeeRepository.findByEmail("hr@aseuro.com");
+                Employee hr;
+                if (hrOpt.isPresent()) {
+                        hr = hrOpt.get();
+                        hr.setPassword(passwordEncoder.encode("Hr@12345"));
+                        hr.setRole(Role.ROLE_HR);
+                        hr.setAccountStatus("ACTIVE");
+                        hr.setFailedLoginAttempts(0);
+                        hr.setLockedUntil(null);
+                        if (hr.getName() == null || hr.getName().trim().isEmpty()) {
+                                hr.setName("Bob HR");
+                        }
+                        if (hr.getDepartment() == null || hr.getDepartment().trim().isEmpty()) {
+                                hr.setDepartment("Human Resources");
+                        }
+                        if (hr.getDesignation() == null || hr.getDesignation().trim().isEmpty()) {
+                                hr.setDesignation("HR Director");
+                        }
+                        if (hr.getJoiningDate() == null) {
+                                hr.setJoiningDate(LocalDate.of(2022, 1, 15));
+                        }
+                        employeeRepository.save(hr);
+                } else {
+                        hr = Employee.builder()
+                                        .email("hr@aseuro.com")
+                                        .password(passwordEncoder.encode("Hr@12345"))
+                                        .name("Bob HR")
+                                        .department("Human Resources")
+                                        .designation("HR Director")
+                                        .joiningDate(LocalDate.of(2022, 1, 15))
+                                        .accountStatus("ACTIVE")
+                                        .failedLoginAttempts(0)
+                                        .lockedUntil(null)
+                                        .role(Role.ROLE_HR)
+                                        .build();
+                        employeeRepository.save(hr);
+                }
+
+                List<PmsAssignment> hrAssignments = pmsAssignmentRepository.findByEmployee(hr);
+                boolean hasAug2026 = hrAssignments.stream()
+                                .anyMatch(a -> "August 2026".equals(a.getCycleMonth()));
+                if (!hasAug2026) {
+                        seedHrAugustAssignment(hr);
+                } else {
+                        for (PmsAssignment a : hrAssignments) {
+                                if ("August 2026".equals(a.getCycleMonth())) {
+                                        List<PmsKpi> kpis = pmsKpiRepository.findByAssignment(a);
+                                        if (kpis.isEmpty()) {
+                                                seedHrAugustKpisOnly(a);
+                                        }
+                                }
+                        }
+                }
         }
 }
