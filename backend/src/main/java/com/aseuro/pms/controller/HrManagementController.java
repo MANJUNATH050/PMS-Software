@@ -5,6 +5,7 @@ import com.aseuro.pms.exception.ApiException;
 import com.aseuro.pms.model.*;
 import com.aseuro.pms.repository.*;
 import com.aseuro.pms.security.UserPrincipal;
+import com.aseuro.pms.service.EmployeeOnboardingEmailService;
 import com.aseuro.pms.service.HrKpiService;
 import com.aseuro.pms.service.HrLifecycleService;
 import com.aseuro.pms.service.ReportService;
@@ -40,6 +41,7 @@ public class HrManagementController {
     private final HrLifecycleService hrLifecycleService;
     private final ReportService reportService;
     private final com.aseuro.pms.service.DesignationService designationService;
+    private final EmployeeOnboardingEmailService onboardingEmailService;
 
     // 1. Dashboard Overview Stats
     @GetMapping("/dashboard")
@@ -380,14 +382,28 @@ public class HrManagementController {
             pmsKpiRepository.saveAll(assignedKpis);
         }
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
-                "message", "Employee created and KPIs assigned successfully.",
-                "id", saved.getId(),
-                "name", saved.getName(),
-                "email", saved.getEmail(),
-                "designation", saved.getDesignation(),
-                "assignedKpisCount", assignedKpis.size()
-        ));
+        boolean emailSent = false;
+        try {
+            emailSent = onboardingEmailService.sendOnboardingEmail(saved, request.getPassword());
+        } catch (Exception e) {
+            org.slf4j.LoggerFactory.getLogger(HrManagementController.class)
+                    .error("Error triggering employee onboarding email: {}", e.getMessage());
+        }
+
+        String msg = emailSent
+                ? "Employee created successfully and onboarding email sent."
+                : "Employee created successfully, but the onboarding email could not be sent.";
+
+        Map<String, Object> responseBody = new java.util.HashMap<>();
+        responseBody.put("message", msg);
+        responseBody.put("id", saved.getId());
+        responseBody.put("name", saved.getName());
+        responseBody.put("email", saved.getEmail());
+        responseBody.put("designation", saved.getDesignation());
+        responseBody.put("assignedKpisCount", assignedKpis.size());
+        responseBody.put("emailSent", emailSent);
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(responseBody);
     }
 
     // 6b. Update Employee Role / Designation
@@ -532,23 +548,35 @@ public class HrManagementController {
     }
 
     // 11. Reports Download
-    @GetMapping("/reports/download")
+    @GetMapping({"/reports/download", "/reports/{id}", "/reports/{id}/download"})
     public ResponseEntity<byte[]> downloadReport(
-            @RequestParam Long assignmentId,
+            @RequestParam(required = false) Long assignmentId,
+            @PathVariable(required = false) Long id,
             @RequestParam(defaultValue = "pdf") String format,
             @AuthenticationPrincipal UserPrincipal hrUser) throws IOException {
+
+        Long targetAssignmentId = assignmentId != null ? assignmentId : id;
+        if (targetAssignmentId == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Report assignment ID must be provided");
+        }
+
+        PmsAssignment assignment = pmsAssignmentRepository.findById(targetAssignmentId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Assignment not found"));
 
         byte[] data;
         String filename;
         MediaType mediaType;
 
+        Long empId = assignment.getEmployee() != null ? assignment.getEmployee().getId() : 0L;
+        String safeCycle = assignment.getCycleMonth() != null ? assignment.getCycleMonth().replaceAll("[^a-zA-Z0-9_-]", "_") : "cycle";
+
         if ("excel".equalsIgnoreCase(format)) {
-            data = reportService.generateExcelReport(hrUser.getId(), assignmentId);
-            filename = "HR_PMS_Report_" + assignmentId + ".xlsx";
+            data = reportService.generateExcelReport(hrUser.getId(), targetAssignmentId);
+            filename = "employee-pms-report-" + empId + "-" + safeCycle + ".xlsx";
             mediaType = MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         } else {
-            data = reportService.generatePdfReport(hrUser.getId(), assignmentId);
-            filename = "HR_PMS_Report_" + assignmentId + ".pdf";
+            data = reportService.generatePdfReport(hrUser.getId(), targetAssignmentId);
+            filename = "employee-pms-report-" + empId + "-" + safeCycle + ".pdf";
             mediaType = MediaType.APPLICATION_PDF;
         }
 

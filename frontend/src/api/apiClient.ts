@@ -27,7 +27,7 @@ const getAuthHeaders = (): Record<string, string> => {
   return headers;
 };
 
-const handleResponse = async (res: Response) => {
+const handleResponse = async (res: Response, responseType?: string) => {
   if (res.status === 401) {
     localStorage.removeItem('pms_token');
     localStorage.removeItem('pms_user');
@@ -35,17 +35,38 @@ const handleResponse = async (res: Response) => {
       window.location.href = '/session-expired';
     }
   }
-  const data = await res.json().catch(() => null);
+
   if (!res.ok) {
-    const error: any = new Error(data?.message || `Request failed with status ${res.status}`);
+    let message = `Request failed with status ${res.status}`;
+    let data: any = null;
+    try {
+      data = await res.json();
+      if (data?.message) {
+        message = data.message;
+      }
+    } catch {
+      // response is not JSON
+    }
+    const error: any = new Error(message);
     error.response = { status: res.status, data };
     throw error;
   }
+
+  let data: any;
+  if (responseType === 'blob') {
+    data = await res.blob();
+  } else {
+    data = await res.json().catch(() => null);
+  }
+
   return { data, status: res.status };
 };
 
 export const apiClient = {
-  get: async <T = any>(url: string, config?: { params?: Record<string, any> }): Promise<{ data: T; status: number }> => {
+  get: async <T = any>(
+    url: string,
+    config?: { params?: Record<string, any>; responseType?: string }
+  ): Promise<{ data: T; status: number }> => {
     let fullUrl = buildUrl(url);
     if (config?.params) {
       const searchParams = new URLSearchParams();
@@ -59,7 +80,7 @@ export const apiClient = {
       method: 'GET',
       headers: getAuthHeaders(),
     });
-    return handleResponse(res);
+    return handleResponse(res, config?.responseType);
   },
 
   post: async <T = any>(url: string, body?: any): Promise<{ data: T; status: number }> => {

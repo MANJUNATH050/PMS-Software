@@ -332,21 +332,50 @@ public class PmsService {
 
         List<PmsHistory> history = pmsHistoryRepository.findByEmployeeOrderByCycleMonthDesc(employee);
         List<PmsAssignment> empAssignments = pmsAssignmentRepository.findByEmployee(employee);
-        Map<String, Long> cycleToAssignmentId = empAssignments.stream()
-                .collect(Collectors.toMap(PmsAssignment::getCycleMonth, PmsAssignment::getId, (a1, a2) -> a1));
 
-        return history.stream().map(h -> {
-            Long correctAssignmentId = cycleToAssignmentId.get(h.getCycleMonth());
-            return PmsHistoryDto.builder()
-                    .id(h.getId())
-                    .assignmentId(correctAssignmentId != null ? correctAssignmentId : h.getAssignmentId())
-                    .cycleMonth(h.getCycleMonth())
-                    .finalScore(h.getFinalScore())
-                    .grade(h.getGrade())
-                    .finalizedDate(h.getFinalizedDate())
-                    .filePath(h.getFilePath())
-                    .build();
-        }).collect(Collectors.toList());
+        Map<String, PmsHistoryDto> mergedMap = new java.util.LinkedHashMap<>();
+
+        // Add finalized assignments
+        for (PmsAssignment a : empAssignments) {
+            if (a.getStatus() == PMSState.FINAL_RESULT_PUBLISHED || a.getStatus() == PMSState.COMPLETED) {
+                String cycle = a.getCycleMonth() != null ? a.getCycleMonth() : "August 2026";
+                LocalDate finDate = a.getFinalizedDate() != null ? a.getFinalizedDate() : LocalDate.now();
+                mergedMap.put(cycle, PmsHistoryDto.builder()
+                        .id(a.getId())
+                        .assignmentId(a.getId())
+                        .cycleMonth(cycle)
+                        .finalScore(a.getOverallScore())
+                        .grade(a.getPerformanceGrade() != null ? a.getPerformanceGrade() : "Completed")
+                        .finalizedDate(finDate)
+                        .build());
+            }
+        }
+
+        // Overlay PmsHistory entries
+        for (PmsHistory h : history) {
+            String cycle = h.getCycleMonth();
+            PmsHistoryDto existing = mergedMap.get(cycle);
+            if (existing != null) {
+                if (existing.getAssignmentId() == null && h.getAssignmentId() != null) {
+                    existing.setAssignmentId(h.getAssignmentId());
+                }
+                if (h.getFinalScore() != null) existing.setFinalScore(h.getFinalScore());
+                if (h.getGrade() != null) existing.setGrade(h.getGrade());
+                if (h.getFinalizedDate() != null) existing.setFinalizedDate(h.getFinalizedDate());
+            } else {
+                mergedMap.put(cycle, PmsHistoryDto.builder()
+                        .id(h.getId())
+                        .assignmentId(h.getAssignmentId() != null ? h.getAssignmentId() : h.getId())
+                        .cycleMonth(cycle)
+                        .finalScore(h.getFinalScore())
+                        .grade(h.getGrade() != null ? h.getGrade() : "Completed")
+                        .finalizedDate(h.getFinalizedDate())
+                        .filePath(h.getFilePath())
+                        .build());
+            }
+        }
+
+        return new ArrayList<>(mergedMap.values());
     }
 
     @Transactional(readOnly = true)

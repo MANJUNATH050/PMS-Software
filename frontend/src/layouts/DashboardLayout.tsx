@@ -31,11 +31,10 @@ const SidebarItem: React.FC<SidebarItemProps> = ({ to, icon, label, active, onCl
     <Link
       to={to}
       onClick={onClick}
-      className={`flex items-center space-x-3.5 px-4 py-3.5 rounded-xl transition-all duration-200 group ${
-        active
+      className={`flex items-center space-x-3.5 px-4 py-3.5 rounded-xl transition-all duration-200 group ${active
           ? 'bg-pms-lightGreen text-pms-darkGreen font-bold border-l-4 border-pms-green shadow-xs'
           : 'text-slate-600 hover:bg-slate-100/90 hover:text-pms-gray font-medium'
-      }`}
+        }`}
     >
       <div className={`shrink-0 transition-colors ${active ? 'text-pms-green' : 'text-slate-400 group-hover:text-pms-gray'}`}>
         {icon}

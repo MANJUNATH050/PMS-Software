@@ -517,6 +517,20 @@ public class HrLifecycleService {
                 .finalizedBy(hr)
                 .finalizedDate(LocalDate.now())
                 .build();
+        finalPmsResultRepository.save(result);
+
+        // Save/Update PmsHistory record for permanent employee history access
+        PmsHistory historyRecord = pmsHistoryRepository.findByEmployeeAndCycleMonth(assignment.getEmployee(), assignment.getCycleMonth())
+                .orElseGet(() -> PmsHistory.builder()
+                        .employee(assignment.getEmployee())
+                        .cycleMonth(assignment.getCycleMonth())
+                        .build());
+        historyRecord.setAssignmentId(assignment.getId());
+        historyRecord.setFinalScore(finalScore);
+        historyRecord.setGrade(grade);
+        historyRecord.setFinalizedDate(LocalDate.now());
+        pmsHistoryRepository.save(historyRecord);
+
         LocalDate today = LocalDate.now();
 
         // Add HR review comment if provided

@@ -16,6 +16,7 @@ com\aseuro\pms\service\HrLifecycleService.class
 com\aseuro\pms\dto\HrReportSummaryDto$RatingCategoryDto$RatingCategoryDtoBuilder.class
 com\aseuro\pms\dto\KpiMasterDto.class
 com\aseuro\pms\security\JwtTokenProvider.class
+com\aseuro\pms\service\EmployeeOnboardingEmailService.class
 com\aseuro\pms\dto\CreateEmployeeRequest.class
 com\aseuro\pms\dto\KpiDto$KpiDtoBuilder.class
 com\aseuro\pms\entity\UserRole.class
@@ -59,6 +60,7 @@ com\aseuro\pms\service\AuthService.class
 com\aseuro\pms\dto\PmsAssignmentDto$PmsAssignmentDtoBuilder.class
 com\aseuro\pms\repository\KpiMasterRepository.class
 com\aseuro\pms\repository\PmsAssignmentRepository.class
+com\aseuro\pms\service\ReportService$PdfPageContext.class
 com\aseuro\pms\model\PmsKpi$PmsKpiBuilder.class
 com\aseuro\pms\model\PmsKpi.class
 com\aseuro\pms\model\KpiMaster.class

@@ -7,16 +7,17 @@ export const reportApi = {
       responseType: 'blob',
     });
 
-    const blob = new Blob([response.data], {
+    const blob = response.data instanceof Blob ? response.data : new Blob([response.data], {
       type: format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     });
 
+    const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.href = window.URL.createObjectURL(blob);
+    link.href = url;
     link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    window.URL.revokeObjectURL(link.href);
+    window.URL.revokeObjectURL(url);
   }
 };

@@ -18,4 +18,8 @@ app:
     jwt:
         secret: ${JWT_SECRET:K7mQ2xP9vL4nR8sT3wY6aB1cD5eF0gH2}
         expiration: ${JWT_EXPIRATION:86400000}
-    frontend-url: ${FRONTEND_URL:http://localhost:5173}
+    frontend-url: ${PMS_FRONTEND_URL:${FRONTEND_URL:http://localhost:5173}}
+brevo:
+    api-key: ${BREVO_API_KEY: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}
+    sender-email: ${BREVO_SENDER_EMAIL:demomanjunath@gmail.com}
+    sender-name: ${BREVO_SENDER_NAME:Aseuro PMS}

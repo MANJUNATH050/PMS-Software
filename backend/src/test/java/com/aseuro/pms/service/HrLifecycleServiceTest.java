@@ -135,8 +135,8 @@ public class HrLifecycleServiceTest {
         Map<String, Object> result = hrLifecycleService.saveHrRatings(10L, 99L, request);
 
         assertNotNull(result);
-        assertEquals("HR ratings saved successfully.", result.get("message"));
-        assertEquals(4.2, rating1.getManagerRating());
+        assertEquals("HR ratings and comments saved successfully.", result.get("message"));
+        assertEquals(4.5, rating1.getManagerRating());
         assertEquals(4.8, rating1.getHrRating());
         verify(employeeKpiRatingRepository, times(2)).save(any(EmployeeKpiRating.class));
         verify(employeeReviewRepository, times(1)).save(any(EmployeeReview.class));

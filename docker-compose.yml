@@ -47,6 +47,10 @@ services:
       - DB_NAME=pms_db
       - DB_USERNAME=postgres
       - DB_PASSWORD=postgres
+      - BREVO_API_KEY=${BREVO_API_KEY:-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}
+      - BREVO_SENDER_EMAIL=${BREVO_SENDER_EMAIL:-demomanjunath@gmail.com}
+      - BREVO_SENDER_NAME=${BREVO_SENDER_NAME:-Aseuro PMS}
+      - PMS_FRONTEND_URL=${PMS_FRONTEND_URL:-http://localhost:5173}
     depends_on:
       postgres:
         condition: service_healthy

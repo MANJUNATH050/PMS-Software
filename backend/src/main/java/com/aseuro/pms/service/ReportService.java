@@ -51,35 +51,50 @@ public class ReportService {
         Employee reqUser = employeeRepository.findById(employeeId).orElse(null);
         boolean isHrOrManager = reqUser != null && (reqUser.getRole() == Role.ROLE_HR || reqUser.getRole() == Role.ROLE_MANAGER);
 
-        if (!assignment.getEmployee().getId().equals(employeeId) && !isHrOrManager) {
+        if (assignment.getEmployee() != null && !assignment.getEmployee().getId().equals(employeeId) && !isHrOrManager) {
             throw new AccessDeniedException("Unauthorized access to report");
         }
 
         List<PmsKpi> allKpis = pmsKpiRepository.findByAssignment(assignment);
+        if (allKpis == null) allKpis = Collections.emptyList();
+
         List<PmsKpi> roleKpis = allKpis.stream()
-                .filter(k -> !"HR_REVIEW_KPI".equals(k.getKpiCategory()))
+                .filter(k -> k != null && !"HR_REVIEW_KPI".equals(k.getKpiCategory()))
                 .collect(Collectors.toList());
         List<PmsKpi> hrKpis = allKpis.stream()
-                .filter(k -> "HR_REVIEW_KPI".equals(k.getKpiCategory()))
+                .filter(k -> k != null && "HR_REVIEW_KPI".equals(k.getKpiCategory()))
                 .collect(Collectors.toList());
 
         List<EmployeeKpiRating> ratings = employeeKpiRatingRepository.findByAssignment(assignment);
+        if (ratings == null) ratings = Collections.emptyList();
+
         List<EmployeeReview> reviews = employeeReviewRepository.findByAssignment(assignment);
+        if (reviews == null) reviews = Collections.emptyList();
 
         double selfSum = 0.0;
         double mgrSum = 0.0;
         double hrSum = 0.0;
+
+        final List<EmployeeKpiRating> safeRatings = ratings;
+
         for (PmsKpi kpi : roleKpis) {
-            EmployeeKpiRating r = ratings.stream().filter(rt -> rt.getKpi().getId().equals(kpi.getId())).findFirst().orElse(null);
-            double w = kpi.getWeightage() / 100.0;
+            if (kpi == null) continue;
+            EmployeeKpiRating r = safeRatings.stream()
+                    .filter(rt -> rt != null && rt.getKpi() != null && rt.getKpi().getId().equals(kpi.getId()))
+                    .findFirst().orElse(null);
+            double w = (kpi.getWeightage() != null ? kpi.getWeightage() : 0.0) / 100.0;
             if (r != null) {
                 if (r.getSelfRating() != null) selfSum += r.getSelfRating() * w;
                 if (r.getManagerRating() != null) mgrSum += r.getManagerRating() * w;
             }
         }
+
         for (PmsKpi kpi : hrKpis) {
-            EmployeeKpiRating r = ratings.stream().filter(rt -> rt.getKpi().getId().equals(kpi.getId())).findFirst().orElse(null);
-            double w = kpi.getWeightage() / 100.0;
+            if (kpi == null) continue;
+            EmployeeKpiRating r = safeRatings.stream()
+                    .filter(rt -> rt != null && rt.getKpi() != null && rt.getKpi().getId().equals(kpi.getId()))
+                    .findFirst().orElse(null);
+            double w = (kpi.getWeightage() != null ? kpi.getWeightage() : 0.0) / 100.0;
             if (r != null && r.getHrRating() != null) {
                 hrSum += r.getHrRating() * w;
             } else if (assignment.getStatus() == PMSState.COMPLETED || assignment.getStatus() == PMSState.FINAL_RESULT_PUBLISHED) {
@@ -91,181 +106,164 @@ public class ReportService {
         double mgrScore = Math.round(mgrSum * 100.0) / 100.0;
         double hrScore = Math.round(hrSum * 100.0) / 100.0;
 
+        Employee emp = assignment.getEmployee();
+        String empName = emp != null && emp.getName() != null ? emp.getName() : "N/A";
+        String empIdStr = emp != null && emp.getId() != null ? String.valueOf(emp.getId()) : "-";
+        String empEmail = emp != null && emp.getEmail() != null ? emp.getEmail() : "-";
+        String empDesignation = emp != null && emp.getDesignation() != null ? emp.getDesignation() : "-";
+        String empDepartment = emp != null && emp.getDepartment() != null ? emp.getDepartment() : "-";
+        String empManager = emp != null && emp.getManager() != null && emp.getManager().getName() != null ? emp.getManager().getName() : "-";
+        String cycleMonth = assignment.getCycleMonth() != null ? assignment.getCycleMonth() : "N/A";
+        String statusStr = assignment.getStatus() != null ? assignment.getStatus().name() : "N/A";
+
         try (PDDocument document = new PDDocument()) {
-            PDPage page = new PDPage(PDRectangle.A4);
-            document.addPage(page);
-
-            PDType1Font fontBold = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
-            PDType1Font fontRegular = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
-            PDType1Font fontOblique = new PDType1Font(Standard14Fonts.FontName.HELVETICA_OBLIQUE);
-
-            PDPageContentStream contentStream = new PDPageContentStream(document, page);
-            int yPosition = 780;
+            PdfPageContext ctx = new PdfPageContext(document);
 
             // Header
-            contentStream.beginText();
-            contentStream.setFont(fontBold, 15);
-            contentStream.newLineAtOffset(50, yPosition);
-            contentStream.showText("Performance Management System (PMS) - Final Report");
-            contentStream.endText();
-            yPosition -= 30;
+            ctx.currentStream.beginText();
+            ctx.currentStream.setFont(ctx.fontBold, 15);
+            ctx.currentStream.newLineAtOffset(50, ctx.yPosition);
+            ctx.currentStream.showText("Performance Management System (PMS) - Final Report");
+            ctx.currentStream.endText();
+            ctx.yPosition -= 30;
 
             // Employee Info Box
-            contentStream.beginText();
-            contentStream.setFont(fontBold, 9);
-            contentStream.newLineAtOffset(50, yPosition);
-            contentStream.showText("Employee Name: " + assignment.getEmployee().getName() + " (EMP-" + assignment.getEmployee().getId() + ")");
-            contentStream.newLineAtOffset(0, -14);
-            contentStream.showText("Designation: " + (assignment.getEmployee().getDesignation() != null ? assignment.getEmployee().getDesignation() : "-") +
-                    " | Department: " + (assignment.getEmployee().getDepartment() != null ? assignment.getEmployee().getDepartment() : "-"));
-            contentStream.newLineAtOffset(0, -14);
-            contentStream.showText("PMS Cycle: " + assignment.getCycleMonth() + " | Status: " + assignment.getStatus());
-            contentStream.newLineAtOffset(0, -14);
-            contentStream.showText("Scores: Self (" + selfScore + ") | Manager (" + mgrScore + ") | HR (" + hrScore + ")");
-            contentStream.newLineAtOffset(0, -14);
-            contentStream.showText("Final Performance Score: " + (assignment.getOverallScore() != null ? String.format("%.2f", assignment.getOverallScore()) : "N/A") +
-                    " / 5.00 (" + (assignment.getPerformanceGrade() != null ? assignment.getPerformanceGrade() : "Pending") + ")");
-            contentStream.endText();
-            yPosition -= 80;
+            ctx.currentStream.beginText();
+            ctx.currentStream.setFont(ctx.fontBold, 9);
+            ctx.currentStream.newLineAtOffset(50, ctx.yPosition);
+            ctx.currentStream.showText("Employee Name: " + sanitizeText(empName) + " (EMP-" + empIdStr + ") | Email: " + sanitizeText(empEmail));
+            ctx.currentStream.newLineAtOffset(0, -14);
+            ctx.currentStream.showText("Designation: " + sanitizeText(empDesignation) + " | Department: " + sanitizeText(empDepartment) + " | Manager: " + sanitizeText(empManager));
+            ctx.currentStream.newLineAtOffset(0, -14);
+            ctx.currentStream.showText("PMS Cycle: " + sanitizeText(cycleMonth) + " | Status: " + statusStr);
+            ctx.currentStream.newLineAtOffset(0, -14);
+            ctx.currentStream.showText("Scores: Self (" + selfScore + ") | Manager (" + mgrScore + ") | HR (" + hrScore + ")");
+            ctx.currentStream.newLineAtOffset(0, -14);
+            ctx.currentStream.showText("Final Performance Score: " + (assignment.getOverallScore() != null ? String.format("%.2f", assignment.getOverallScore()) : "N/A") +
+                    " / 5.00 (" + sanitizeText(assignment.getPerformanceGrade() != null ? assignment.getPerformanceGrade() : "Pending") + ")");
+            ctx.currentStream.endText();
+            ctx.yPosition -= 80;
 
             // Section 1: Role / Employee KPIs
-            contentStream.beginText();
-            contentStream.setFont(fontBold, 11);
-            contentStream.newLineAtOffset(50, yPosition);
-            contentStream.showText("1. Employee KPI Performance Breakdown & Comments:");
-            contentStream.endText();
-            yPosition -= 20;
+            ctx.checkSpace(40);
+            ctx.currentStream.beginText();
+            ctx.currentStream.setFont(ctx.fontBold, 11);
+            ctx.currentStream.newLineAtOffset(50, ctx.yPosition);
+            ctx.currentStream.showText("1. Employee KPI Performance Breakdown & Comments:");
+            ctx.currentStream.endText();
+            ctx.yPosition -= 20;
 
             for (PmsKpi kpi : roleKpis) {
-                EmployeeKpiRating r = ratings.stream()
-                        .filter(rt -> rt.getKpi().getId().equals(kpi.getId()))
+                if (kpi == null) continue;
+                EmployeeKpiRating r = safeRatings.stream()
+                        .filter(rt -> rt != null && rt.getKpi() != null && rt.getKpi().getId().equals(kpi.getId()))
                         .findFirst().orElse(null);
 
-                // Check remaining space for KPI title + ratings block
-                if (yPosition < 120) {
-                    contentStream.close();
-                    page = new PDPage(PDRectangle.A4);
-                    document.addPage(page);
-                    contentStream = new PDPageContentStream(document, page);
-                    yPosition = 780;
-                }
+                ctx.checkSpace(60);
 
-                contentStream.beginText();
-                contentStream.setFont(fontBold, 9);
-                contentStream.newLineAtOffset(50, yPosition);
-                contentStream.showText("• " + sanitizeText(kpi.getKpiName()) + " (Weight: " + kpi.getWeightage() + "%)");
-                contentStream.setFont(fontRegular, 8);
-                contentStream.newLineAtOffset(0, -12);
-                contentStream.showText("  Self Rating: " + (r != null && r.getSelfRating() != null ? r.getSelfRating() : "N/A") +
+                String kpiNameStr = kpi.getKpiName() != null ? kpi.getKpiName() : "KPI";
+                double weightVal = kpi.getWeightage() != null ? kpi.getWeightage() : 0.0;
+
+                ctx.currentStream.beginText();
+                ctx.currentStream.setFont(ctx.fontBold, 9);
+                ctx.currentStream.newLineAtOffset(50, ctx.yPosition);
+                ctx.currentStream.showText("- " + sanitizeText(kpiNameStr) + " (Weight: " + weightVal + "%)");
+                ctx.currentStream.setFont(ctx.fontRegular, 8);
+                ctx.currentStream.newLineAtOffset(0, -12);
+                ctx.currentStream.showText("  Self Rating: " + (r != null && r.getSelfRating() != null ? r.getSelfRating() : "N/A") +
                         " | Manager Rating: " + (r != null && r.getManagerRating() != null ? r.getManagerRating() : "N/A") +
                         " | HR Rating: " + (r != null && r.getHrRating() != null ? r.getHrRating() : "N/A"));
-                contentStream.endText();
-                yPosition -= 26;
+                ctx.currentStream.endText();
+                ctx.yPosition -= 26;
 
                 // Employee Comment
                 String empComment = r != null ? r.getEmployeeComment() : null;
                 if (empComment != null && !empComment.trim().isEmpty()) {
-                    yPosition = drawCommentBlock(contentStream, document, page, fontBold, fontOblique, "Employee Comment:", empComment, yPosition);
+                    drawCommentBlock(ctx, "Employee Comment:", empComment);
                 }
 
                 // Manager Comment
                 String mgrComment = r != null ? r.getManagerComment() : null;
                 if (mgrComment != null && !mgrComment.trim().isEmpty()) {
-                    yPosition = drawCommentBlock(contentStream, document, page, fontBold, fontOblique, "Manager Comment:", mgrComment, yPosition);
+                    drawCommentBlock(ctx, "Manager Comment:", mgrComment);
                 }
 
                 // HR Comment
                 String hrComment = r != null ? r.getHrComment() : null;
                 if (hrComment != null && !hrComment.trim().isEmpty()) {
-                    yPosition = drawCommentBlock(contentStream, document, page, fontBold, fontOblique, "HR Comment:", hrComment, yPosition);
+                    drawCommentBlock(ctx, "HR Comment:", hrComment);
                 }
 
-                yPosition -= 10;
+                ctx.yPosition -= 10;
             }
 
             // Section 2: HR Review KPIs
             if (!hrKpis.isEmpty()) {
-                if (yPosition < 140) {
-                    contentStream.close();
-                    page = new PDPage(PDRectangle.A4);
-                    document.addPage(page);
-                    contentStream = new PDPageContentStream(document, page);
-                    yPosition = 780;
-                }
-
-                yPosition -= 10;
-                contentStream.beginText();
-                contentStream.setFont(fontBold, 11);
-                contentStream.newLineAtOffset(50, yPosition);
-                contentStream.showText("2. HR Review KPI Evaluation (Corporate Staff):");
-                contentStream.endText();
-                yPosition -= 20;
+                ctx.checkSpace(50);
+                ctx.yPosition -= 10;
+                ctx.currentStream.beginText();
+                ctx.currentStream.setFont(ctx.fontBold, 11);
+                ctx.currentStream.newLineAtOffset(50, ctx.yPosition);
+                ctx.currentStream.showText("2. HR Review KPI Evaluation (Corporate Staff):");
+                ctx.currentStream.endText();
+                ctx.yPosition -= 20;
 
                 for (PmsKpi kpi : hrKpis) {
-                    EmployeeKpiRating r = ratings.stream()
-                            .filter(rt -> rt.getKpi().getId().equals(kpi.getId()))
+                    if (kpi == null) continue;
+                    EmployeeKpiRating r = safeRatings.stream()
+                            .filter(rt -> rt != null && rt.getKpi() != null && rt.getKpi().getId().equals(kpi.getId()))
                             .findFirst().orElse(null);
                     Double hrRat = r != null && r.getHrRating() != null ? r.getHrRating() : 5.0;
 
-                    if (yPosition < 100) {
-                        contentStream.close();
-                        page = new PDPage(PDRectangle.A4);
-                        document.addPage(page);
-                        contentStream = new PDPageContentStream(document, page);
-                        yPosition = 780;
-                    }
+                    ctx.checkSpace(40);
 
-                    contentStream.beginText();
-                    contentStream.setFont(fontBold, 9);
-                    contentStream.newLineAtOffset(50, yPosition);
-                    contentStream.showText("• " + sanitizeText(kpi.getKpiName()) + " (Weight: " + kpi.getWeightage() + "%) - HR Rating: " + hrRat + " / 5.00");
-                    contentStream.endText();
-                    yPosition -= 14;
+                    String kpiNameStr = kpi.getKpiName() != null ? kpi.getKpiName() : "HR Review KPI";
+                    double weightVal = kpi.getWeightage() != null ? kpi.getWeightage() : 0.0;
+
+                    ctx.currentStream.beginText();
+                    ctx.currentStream.setFont(ctx.fontBold, 9);
+                    ctx.currentStream.newLineAtOffset(50, ctx.yPosition);
+                    ctx.currentStream.showText("- " + sanitizeText(kpiNameStr) + " (Weight: " + weightVal + "%) - HR Rating: " + hrRat + " / 5.00");
+                    ctx.currentStream.endText();
+                    ctx.yPosition -= 14;
 
                     String hrKpiComment = r != null ? r.getHrComment() : null;
                     if (hrKpiComment != null && !hrKpiComment.trim().isEmpty()) {
-                        yPosition = drawCommentBlock(contentStream, document, page, fontBold, fontOblique, "HR Comment:", hrKpiComment, yPosition);
+                        drawCommentBlock(ctx, "HR Comment:", hrKpiComment);
                     }
 
-                    yPosition -= 8;
+                    ctx.yPosition -= 8;
                 }
             }
 
             // Section 3: Overall Review Remarks
             if (!reviews.isEmpty()) {
-                if (yPosition < 120) {
-                    contentStream.close();
-                    page = new PDPage(PDRectangle.A4);
-                    document.addPage(page);
-                    contentStream = new PDPageContentStream(document, page);
-                    yPosition = 780;
-                }
-
-                yPosition -= 10;
-                contentStream.beginText();
-                contentStream.setFont(fontBold, 11);
-                contentStream.newLineAtOffset(50, yPosition);
-                contentStream.showText("3. Overall Evaluator Reviews & Remarks:");
-                contentStream.endText();
-                yPosition -= 18;
+                ctx.checkSpace(50);
+                ctx.yPosition -= 10;
+                ctx.currentStream.beginText();
+                ctx.currentStream.setFont(ctx.fontBold, 11);
+                ctx.currentStream.newLineAtOffset(50, ctx.yPosition);
+                ctx.currentStream.showText("3. Overall Evaluator Reviews & Remarks:");
+                ctx.currentStream.endText();
+                ctx.yPosition -= 18;
 
                 for (EmployeeReview rev : reviews) {
-                    if (yPosition < 80) {
-                        contentStream.close();
-                        page = new PDPage(PDRectangle.A4);
-                        document.addPage(page);
-                        contentStream = new PDPageContentStream(document, page);
-                        yPosition = 780;
-                    }
+                    if (rev == null) continue;
+                    ctx.checkSpace(40);
 
-                    String roleName = rev.getReviewer().getRole().name().replace("ROLE_", "");
-                    String label = roleName + " (" + sanitizeText(rev.getReviewer().getName()) + "):";
-                    yPosition = drawCommentBlock(contentStream, document, page, fontBold, fontOblique, label, rev.getComments(), yPosition);
-                    yPosition -= 6;
+                    String roleName = rev.getReviewer() != null && rev.getReviewer().getRole() != null
+                            ? rev.getReviewer().getRole().name().replace("ROLE_", "")
+                            : "REVIEWER";
+                    String revName = rev.getReviewer() != null && rev.getReviewer().getName() != null
+                            ? rev.getReviewer().getName()
+                            : "Evaluator";
+                    String label = roleName + " (" + sanitizeText(revName) + "):";
+                    drawCommentBlock(ctx, label, rev.getComments());
+                    ctx.yPosition -= 6;
                 }
             }
 
-            contentStream.close();
+            ctx.close();
 
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             document.save(baos);
@@ -273,44 +271,80 @@ public class ReportService {
         }
     }
 
-    private int drawCommentBlock(
-            PDPageContentStream stream,
-            PDDocument doc,
-            PDPage page,
-            PDType1Font labelFont,
-            PDType1Font commentFont,
+    private static class PdfPageContext {
+        final PDDocument document;
+        final PDType1Font fontBold;
+        final PDType1Font fontRegular;
+        final PDType1Font fontOblique;
+        PDPage currentPage;
+        PDPageContentStream currentStream;
+        int yPosition;
+
+        PdfPageContext(PDDocument document) throws IOException {
+            this.document = document;
+            this.fontBold = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
+            this.fontRegular = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
+            this.fontOblique = new PDType1Font(Standard14Fonts.FontName.HELVETICA_OBLIQUE);
+            newPage();
+        }
+
+        void newPage() throws IOException {
+            if (currentStream != null) {
+                currentStream.close();
+            }
+            currentPage = new PDPage(PDRectangle.A4);
+            document.addPage(currentPage);
+            currentStream = new PDPageContentStream(document, currentPage);
+            yPosition = 780;
+        }
+
+        void checkSpace(int neededHeight) throws IOException {
+            if (yPosition - neededHeight < 50) {
+                newPage();
+            }
+        }
+
+        void close() throws IOException {
+            if (currentStream != null) {
+                currentStream.close();
+            }
+        }
+    }
+
+    private void drawCommentBlock(
+            PdfPageContext ctx,
             String label,
-            String commentText,
-            int currentY) throws IOException {
+            String commentText) throws IOException {
+
+        if (commentText == null || commentText.trim().isEmpty()) {
+            return;
+        }
 
         List<String> wrappedLines = wrapText(sanitizeText(commentText), 85);
+        if (wrappedLines.isEmpty()) {
+            return;
+        }
+
         int neededHeight = 14 + (wrappedLines.size() * 10);
+        ctx.checkSpace(neededHeight);
 
-        if (currentY - neededHeight < 50) {
-            stream.close();
-            page = new PDPage(PDRectangle.A4);
-            doc.addPage(page);
-            stream = new PDPageContentStream(doc, page);
-            currentY = 780;
-        }
-
-        stream.beginText();
-        stream.setFont(labelFont, 8);
-        stream.newLineAtOffset(65, currentY);
-        stream.showText(label);
-        stream.setFont(commentFont, 8);
+        ctx.currentStream.beginText();
+        ctx.currentStream.setFont(ctx.fontBold, 8);
+        ctx.currentStream.newLineAtOffset(65, ctx.yPosition);
+        ctx.currentStream.showText(sanitizeText(label));
+        ctx.currentStream.setFont(ctx.fontOblique, 8);
         for (String line : wrappedLines) {
-            stream.newLineAtOffset(0, -10);
-            stream.showText("\"" + line + "\"");
+            ctx.currentStream.newLineAtOffset(0, -10);
+            ctx.currentStream.showText("\"" + line + "\"");
         }
-        stream.endText();
+        ctx.currentStream.endText();
 
-        return currentY - neededHeight - 4;
+        ctx.yPosition -= (neededHeight + 4);
     }
 
     private String sanitizeText(String input) {
         if (input == null) return "";
-        return input.replaceAll("[\\r\\n]+", " ").replaceAll("[^\\x00-\\x7F]", "");
+        return input.replaceAll("[\\r\\n]+", " ").replaceAll("[^\\x20-\\x7E]", "");
     }
 
     private List<String> wrapText(String text, int maxCharsPerLine) {

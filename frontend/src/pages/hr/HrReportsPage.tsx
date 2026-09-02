@@ -37,7 +37,7 @@ export const HrReportsPage: React.FC = () => {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | ''>('');
   const [cycleMonth, setCycleMonth] = useState('August 2026');
   const [reportType, setReportType] = useState('Detailed Performance Report');
-  
+
   const [summary, setSummary] = useState<HrReportSummary | null>(null);
   const [lifecycle, setLifecycle] = useState<EmployeeLifecycleData | null>(null);
   const [loadingSummary, setLoadingSummary] = useState(true);
@@ -109,7 +109,10 @@ export const HrReportsPage: React.FC = () => {
 
     setDownloading(true);
     try {
-      const blob = await hrApi.downloadReport(lifecycle.assignmentId, format);
+      const responseBlob = await hrApi.downloadReport(lifecycle.assignmentId, format);
+      const blob = responseBlob instanceof Blob ? responseBlob : new Blob([responseBlob], {
+        type: format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -120,9 +123,9 @@ export const HrReportsPage: React.FC = () => {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Failed to download report. Please try again.');
+      alert(err?.message || 'Failed to download report. Please try again.');
     } finally {
       setDownloading(false);
     }
@@ -664,13 +667,12 @@ export const HrReportsPage: React.FC = () => {
                         )}
                       </td>
                       <td className="px-4 py-4 text-xs font-bold text-center align-top">
-                        <span className={`px-2 py-1 rounded-full text-[9px] ${
-                          lifecycle.status === 'COMPLETED' || lifecycle.status === 'FINAL_RESULT_PUBLISHED'
+                        <span className={`px-2 py-1 rounded-full text-[9px] ${lifecycle.status === 'COMPLETED' || lifecycle.status === 'FINAL_RESULT_PUBLISHED'
                             ? 'bg-emerald-100 text-emerald-800 font-bold'
                             : kpi.hrRating !== null
-                            ? 'bg-blue-100 text-blue-800 font-bold'
-                            : 'bg-amber-100 text-amber-800 font-bold'
-                        }`}>
+                              ? 'bg-blue-100 text-blue-800 font-bold'
+                              : 'bg-amber-100 text-amber-800 font-bold'
+                          }`}>
                           {lifecycle.status === 'COMPLETED' || lifecycle.status === 'FINAL_RESULT_PUBLISHED' ? 'FINALIZED' : kpi.hrRating !== null ? 'RATED' : 'PENDING'}
                         </span>
                       </td>

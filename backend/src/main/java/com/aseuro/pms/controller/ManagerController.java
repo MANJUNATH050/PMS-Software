@@ -4,6 +4,7 @@ import com.aseuro.pms.dto.*;
 import com.aseuro.pms.exception.ApiException;
 import com.aseuro.pms.model.Employee;
 import com.aseuro.pms.model.PmsAssignment;
+import com.aseuro.pms.model.Role;
 import com.aseuro.pms.repository.EmployeeRepository;
 import com.aseuro.pms.repository.PmsAssignmentRepository;
 import com.aseuro.pms.security.UserPrincipal;
@@ -75,32 +76,43 @@ public class ManagerController {
     }
 
     // 6. Download Finalized/Active Report for assigned employee
-    @GetMapping("/reports/download")
+    @GetMapping({"/reports/download", "/reports/{id}", "/reports/{id}/download"})
     public ResponseEntity<byte[]> downloadReport(
-            @RequestParam Long assignmentId,
+            @RequestParam(required = false) Long assignmentId,
+            @PathVariable(required = false) Long id,
             @RequestParam(defaultValue = "pdf") String format,
             @AuthenticationPrincipal UserPrincipal principal) throws IOException {
 
-        PmsAssignment assignment = pmsAssignmentRepository.findById(assignmentId)
+        Long targetAssignmentId = assignmentId != null ? assignmentId : id;
+        if (targetAssignmentId == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Report assignment ID must be provided");
+        }
+
+        PmsAssignment assignment = pmsAssignmentRepository.findById(targetAssignmentId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Assignment not found"));
 
-        // Validate that this assignment belongs to an employee reporting to this manager
-        if (assignment.getEmployee().getManager() == null ||
-            !assignment.getEmployee().getManager().getId().equals(principal.getId())) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "Unauthorized: Employee does not report to you.");
+        Employee reqUser = employeeRepository.findById(principal.getId()).orElse(null);
+        boolean isManagerOrHr = reqUser != null && (reqUser.getRole() == Role.ROLE_MANAGER || reqUser.getRole() == Role.ROLE_HR);
+        boolean isOwnReport = assignment.getEmployee() != null && assignment.getEmployee().getId().equals(principal.getId());
+
+        if (!isManagerOrHr && !isOwnReport) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Unauthorized: Employee report unavailable.");
         }
 
         byte[] data;
         String filename;
         MediaType mediaType;
 
+        Long empId = assignment.getEmployee() != null ? assignment.getEmployee().getId() : 0L;
+        String safeCycle = assignment.getCycleMonth() != null ? assignment.getCycleMonth().replaceAll("[^a-zA-Z0-9_-]", "_") : "cycle";
+
         if ("excel".equalsIgnoreCase(format)) {
-            data = reportService.generateExcelReport(principal.getId(), assignmentId);
-            filename = "PMS_Report_" + assignment.getEmployee().getName().replace(" ", "_") + "_" + assignmentId + ".xlsx";
+            data = reportService.generateExcelReport(principal.getId(), targetAssignmentId);
+            filename = "employee-pms-report-" + empId + "-" + safeCycle + ".xlsx";
             mediaType = MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         } else {
-            data = reportService.generatePdfReport(principal.getId(), assignmentId);
-            filename = "PMS_Report_" + assignment.getEmployee().getName().replace(" ", "_") + "_" + assignmentId + ".pdf";
+            data = reportService.generatePdfReport(principal.getId(), targetAssignmentId);
+            filename = "employee-pms-report-" + empId + "-" + safeCycle + ".pdf";
             mediaType = MediaType.APPLICATION_PDF;
         }
 
