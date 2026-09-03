@@ -638,7 +638,7 @@ public class HrLifecycleService {
         stages.add(Map.of(
                 "step", 4,
                 "title", "HR Review",
-                "status", hrDone ? "Completed" : (managerSubmitted ? "Pending" : "Not Started")
+                "status", hrDone ? "Completed" : (managerSubmitted ? "Pending HR" : "Not Started")
         ));
 
         // 5. Final Result

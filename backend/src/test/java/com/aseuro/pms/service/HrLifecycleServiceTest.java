@@ -66,7 +66,7 @@ public class HrLifecycleServiceTest {
         hrUser = Employee.builder()
                 .id(99L)
                 .email("hr@aseuro.com")
-                .name("Bob HR")
+                .name("HR")
                 .role(Role.ROLE_HR)
                 .build();
 

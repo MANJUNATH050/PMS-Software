@@ -26,6 +26,9 @@ public class Employee {
     @Column(nullable = false)
     private String name;
 
+    @Column(name = "employee_code")
+    private String employeeCode;
+
     private String department;
     private String team;
     private String designation;

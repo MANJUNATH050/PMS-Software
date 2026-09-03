@@ -267,8 +267,8 @@ public class PmsService {
             EmployeeKpiRating r = EmployeeKpiRating.builder()
                     .assignment(a)
                     .kpi(pk)
-                    .hrRating(5.0)
-                    .status("FINALIZED")
+                    .hrRating(null)
+                    .status("HR_PENDING")
                     .build();
             employeeKpiRatingRepository.save(r);
         }

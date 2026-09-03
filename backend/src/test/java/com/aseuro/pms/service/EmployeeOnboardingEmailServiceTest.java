@@ -14,7 +14,7 @@ class EmployeeOnboardingEmailServiceTest {
     @BeforeEach
     void setUp() {
         emailService = new EmployeeOnboardingEmailService();
-        ReflectionTestUtils.setField(emailService, "brevoApiKey", "xkeysib-test-key");
+        ReflectionTestUtils.setField(emailService, "brevoApiKey", "test-brevo-api-key");
         ReflectionTestUtils.setField(emailService, "senderEmail", "noreply@aseuro.com");
         ReflectionTestUtils.setField(emailService, "senderName", "Aseuro PMS");
         ReflectionTestUtils.setField(emailService, "frontendUrl", "http://localhost:5173");

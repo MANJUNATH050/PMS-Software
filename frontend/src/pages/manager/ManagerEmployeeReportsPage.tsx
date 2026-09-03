@@ -48,13 +48,12 @@ export const ManagerEmployeeReportsPage: React.FC = () => {
   };
 
   const filteredEmployees = (reportsData?.assignedEmployees || []).filter((emp) => {
+    // Under manager reports for team, ONLY finalized performance records can be shown
+    const isFinalized = emp.status === 'COMPLETED' || emp.status === 'FINAL_RESULT_PUBLISHED';
+    if (!isFinalized) return false;
+
     if (selectedEmployeeIdFilter !== 'ALL' && emp.id.toString() !== selectedEmployeeIdFilter) return false;
     if (selectedMonth !== 'ALL' && emp.cycleMonth !== selectedMonth) return false;
-    if (selectedStatus !== 'ALL') {
-      if (selectedStatus === 'FINALIZED' && emp.status !== 'COMPLETED' && emp.status !== 'FINAL_RESULT_PUBLISHED') return false;
-      if (selectedStatus === 'PENDING_MGR' && emp.status !== 'SELF_ASSESSMENT_SUBMITTED' && emp.status !== 'MANAGER_REVIEW_PENDING') return false;
-      if (selectedStatus === 'REVIEWED_MGR' && emp.status !== 'MANAGER_REVIEW_SUBMITTED' && emp.status !== 'HR_REVIEW_PENDING') return false;
-    }
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       return (
@@ -188,10 +187,7 @@ export const ManagerEmployeeReportsPage: React.FC = () => {
               onChange={(e) => setSelectedStatus(e.target.value)}
               className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-pms-green focus:bg-white"
             >
-              <option value="ALL">All Statuses</option>
-              <option value="FINALIZED">Finalized / Published</option>
-              <option value="PENDING_MGR">Awaiting Manager Review</option>
-              <option value="REVIEWED_MGR">Manager Reviewed / In HR</option>
+              <option value="FINALIZED">Finalized / Published Records Only</option>
             </select>
           </div>
 

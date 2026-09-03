@@ -24,6 +24,11 @@ export const hrApi = {
     return response.data;
   },
 
+  getDepartments: async (): Promise<string[]> => {
+    const response = await apiClient.get<string[]>('/api/hr/departments');
+    return response.data;
+  },
+
   createRole: async (name: string, description?: string): Promise<{ id: number; name: string; description: string }> => {
     const response = await apiClient.post<{ id: number; name: string; description: string }>('/api/hr/roles', { name, description });
     return response.data;

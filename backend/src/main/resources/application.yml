@@ -26,6 +26,6 @@ app:
   frontend-url: ${PMS_FRONTEND_URL:http://localhost:5173}
 
 brevo:
-  api-key: ${BREVO_API_KEY}
-  sender-email: ${BREVO_SENDER_EMAIL}
+  api-key: ${BREVO_API_KEY:${BREVO_API_KEY}}
+  sender-email: ${BREVO_SENDER_EMAIL:demomanjunath@gmail.com}
   sender-name: ${BREVO_SENDER_NAME:Aseuro PMS}

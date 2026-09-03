@@ -66,6 +66,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
     { name: 'View New Employees Assigned', href: '/manager/employees', icon: <Users size={20} /> },
     { name: 'Manager Reports', href: '/manager/reports', icon: <BarChart3 size={20} /> },
     { name: 'Employee Reports', href: '/manager/employee-reports', icon: <ClipboardList size={20} /> },
+    { name: 'My Profile', href: '/profile', icon: <User size={20} /> },
   ];
 
   const hrNavigation = [
@@ -235,7 +236,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
           </div>
           <div className="flex items-center space-x-4">
             <div className="flex flex-col text-right">
-              <span className="text-sm font-bold text-pms-gray">{user?.name || (isHr ? 'Bob HR' : isManager ? 'Alice Smith' : 'User')}</span>
+              <span className="text-sm font-bold text-pms-gray">{user?.name || (isHr ? 'HR' : isManager ? 'Alice Smith' : 'User')}</span>
               <span className="text-xs text-slate-400 capitalize font-medium">{isHr ? 'HR Administrator' : isManager ? 'Reporting Manager' : 'Employee'}</span>
             </div>
             <div className="w-10 h-10 rounded-full bg-pms-green text-white flex items-center justify-center font-bold text-sm shadow-sm border-2 border-white">

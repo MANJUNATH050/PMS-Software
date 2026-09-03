@@ -53,7 +53,7 @@ class HrAuthenticationTest {
         hrEmployee = Employee.builder()
                 .id(2L)
                 .email("hr@aseuro.com")
-                .name("Bob HR")
+                .name("HR")
                 .password(encodedPassword)
                 .role(Role.ROLE_HR)
                 .accountStatus("ACTIVE")
@@ -92,7 +92,7 @@ class HrAuthenticationTest {
         LoginResponse loginResponse = (LoginResponse) response.getBody();
         assertEquals("jwt.token.for.hr", loginResponse.getToken());
         assertEquals("hr@aseuro.com", loginResponse.getEmail());
-        assertEquals("Bob HR", loginResponse.getName());
+        assertEquals("HR", loginResponse.getName());
         assertEquals("ROLE_HR", loginResponse.getRole());
     }
 

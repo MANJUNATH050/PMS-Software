@@ -93,7 +93,8 @@ export const HrKpisPage: React.FC = () => {
     setCurrentKpiId(null);
     setFormKpiName('');
     setFormDescription('');
-    setFormWeightage(20);
+    const remainingWeight = Math.max(5, 100 - totalWeightage);
+    setFormWeightage(remainingWeight);
     setFormApplicableFor('Employee');
     setFormError(null);
     setModalOpen(true);

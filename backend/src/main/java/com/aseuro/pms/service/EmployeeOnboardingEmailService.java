@@ -18,7 +18,7 @@ public class EmployeeOnboardingEmailService {
 
     private static final Logger logger = LoggerFactory.getLogger(EmployeeOnboardingEmailService.class);
 
-    @Value("${brevo.api-key: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}")
+    @Value("${brevo.api-key:${BREVO_API_KEY}}")
     private String brevoApiKey;
 
     @Value("${brevo.sender-email:demomanjunath@gmail.com}")

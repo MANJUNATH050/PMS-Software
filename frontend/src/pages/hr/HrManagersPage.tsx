@@ -73,7 +73,7 @@ export const HrManagersPage: React.FC = () => {
 
     setSaving(true);
     try {
-      await hrApi.createManager({
+      const res: any = await hrApi.createManager({
         name: name.trim(),
         managerCode: managerCode.trim() || undefined,
         email: email.trim().toLowerCase(),
@@ -83,7 +83,11 @@ export const HrManagersPage: React.FC = () => {
         reportingManagerId: reportingManagerId ? Number(reportingManagerId) : null
       });
 
-      setSuccess(`Manager "${name}" (${email}) created successfully! Now available in reporting manager assignments.`);
+      if (res?.emailSent === false) {
+        setSuccess(`Manager "${name}" (${email}) created successfully! (Note: Onboarding email could not be sent)`);
+      } else {
+        setSuccess(`Manager "${name}" (${email}) created successfully and onboarding email sent!`);
+      }
       setModalOpen(false);
       setName('');
       setManagerCode('');

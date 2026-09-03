@@ -116,6 +116,7 @@ export const HrEmployeeDirectoryPage: React.FC = () => {
       setTimeout(() => setSuccess(null), 4000);
       handleCloseEditModal();
       fetchEmployees();
+      hrApi.getManagers().then(setManagers).catch(() => {});
     } catch (err: any) {
       console.error(err);
       setModalError(err.response?.data?.message || 'Failed to update employee details.');
@@ -362,21 +363,32 @@ export const HrEmployeeDirectoryPage: React.FC = () => {
 
                 {/* Form Inputs */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Role Dropdown */}
+                  {/* Corporate System Role Dropdown */}
                   <div>
                     <label htmlFor="edit-employee-role" className="block text-xs font-bold text-pms-gray mb-1">
-                      Role <span className="text-red-500">*</span>
+                      Corporate System Role <span className="text-red-500">*</span>
                     </label>
                     <select
                       id="edit-employee-role"
                       value={formRole}
-                      onChange={(e) => setFormRole(e.target.value)}
+                      onChange={(e) => {
+                        const newRole = e.target.value;
+                        setFormRole(newRole);
+                        if (newRole === 'MANAGER' || newRole === 'HR') {
+                          setFormManagerId(null);
+                        }
+                      }}
                       className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium text-pms-gray focus:ring-2 focus:ring-pms-green/50 focus:border-pms-green"
                     >
                       <option value="EMPLOYEE">EMPLOYEE</option>
-                      <option value="MANAGER">MANAGER</option>
-                      <option value="HR">HR</option>
+                      <option value="MANAGER">MANAGER (Team Reporting Manager)</option>
+                      <option value="HR">HR (Human Resources Administrator)</option>
                     </select>
+                    {formRole === 'MANAGER' && (
+                      <p className="text-[10px] text-slate-500 mt-1">
+                        Managers can review direct reports and will be available as reporting managers.
+                      </p>
+                    )}
                   </div>
 
                   {/* Account Status */}
@@ -396,10 +408,10 @@ export const HrEmployeeDirectoryPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Designation Dropdown */}
+                {/* Designation / Job Title Dropdown */}
                 <div>
                   <label htmlFor="edit-employee-designation" className="block text-xs font-bold text-pms-gray mb-1">
-                    Designation / Title <span className="text-red-500">*</span>
+                    Designation / Job Title <span className="text-red-500">*</span>
                   </label>
                   <select
                     id="edit-employee-designation"
@@ -452,16 +464,18 @@ export const HrEmployeeDirectoryPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Reporting Manager */}
+                {/* Reporting Manager (Optional) */}
                 <div>
-                  <label htmlFor="edit-employee-manager" className="block text-xs font-bold text-pms-gray mb-1">Reporting Manager</label>
+                  <label htmlFor="edit-employee-manager" className="block text-xs font-bold text-pms-gray mb-1">
+                    Reporting Manager (Optional)
+                  </label>
                   <select
                     id="edit-employee-manager"
                     value={formManagerId ?? ''}
                     onChange={(e) => setFormManagerId(e.target.value ? Number(e.target.value) : null)}
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium text-pms-gray focus:ring-2 focus:ring-pms-green/50 focus:border-pms-green"
                   >
-                    <option value="">No Reporting Manager</option>
+                    <option value="">-- No Manager (Independent / Self) --</option>
                     {managers
                       .filter((m) => m.id !== editingEmployee.id)
                       .map((m) => (

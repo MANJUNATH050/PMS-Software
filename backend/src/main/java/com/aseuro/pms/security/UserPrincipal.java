@@ -49,7 +49,7 @@ public class UserPrincipal implements UserDetails {
 
     @Override
     public boolean isAccountNonLocked() {
-        return "ACTIVE".equalsIgnoreCase(employee.getAccountStatus());
+        return employee.getAccountStatus() == null || !"INACTIVE".equalsIgnoreCase(employee.getAccountStatus());
     }
 
     @Override
@@ -59,6 +59,6 @@ public class UserPrincipal implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return "ACTIVE".equalsIgnoreCase(employee.getAccountStatus());
+        return employee.getAccountStatus() == null || !"INACTIVE".equalsIgnoreCase(employee.getAccountStatus());
     }
 }

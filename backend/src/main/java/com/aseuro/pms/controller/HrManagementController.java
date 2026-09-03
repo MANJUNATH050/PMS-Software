@@ -47,7 +47,7 @@ public class HrManagementController {
     @GetMapping("/dashboard")
     public ResponseEntity<HrDashboardStatsDto> getDashboardStats() {
         List<Employee> allEmployees = employeeRepository.findAll();
-        long totalEmp = allEmployees.stream().filter(e -> e.getRole() == Role.ROLE_EMPLOYEE).count();
+        long totalEmp = allEmployees.stream().filter(e -> e.getRole() != Role.ROLE_HR).count();
         long totalMgr = allEmployees.stream().filter(e -> e.getRole() == Role.ROLE_MANAGER).count();
         long totalDesig = hrKpiService.getAllDesignations().size();
 
@@ -170,6 +170,20 @@ public class HrManagementController {
         return ResponseEntity.ok(list);
     }
 
+    // 3b. Department List
+    @GetMapping("/departments")
+    public ResponseEntity<List<String>> getDepartments() {
+        List<String> defaultDepts = List.of("Engineering", "Human Resources", "Quality Assurance", "Product", "Operations", "Sales", "Marketing", "Finance");
+        Set<String> set = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        set.addAll(defaultDepts);
+        employeeRepository.findAll().forEach(e -> {
+            if (e.getDepartment() != null && !e.getDepartment().trim().isEmpty()) {
+                set.add(e.getDepartment().trim());
+            }
+        });
+        return ResponseEntity.ok(new ArrayList<>(set));
+    }
+
     // 4. Create Manager
     @PostMapping("/managers")
     @Transactional
@@ -200,14 +214,28 @@ public class HrManagementController {
 
         Employee saved = employeeRepository.save(manager);
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
-                "message", "Manager created successfully.",
-                "id", saved.getId(),
-                "name", saved.getName(),
-                "email", saved.getEmail(),
-                "reportingManagerId", saved.getManager() != null ? saved.getManager().getId() : null,
-                "reportingManagerName", saved.getManager() != null ? saved.getManager().getName() : null
-        ));
+        boolean emailSent = false;
+        try {
+            emailSent = onboardingEmailService.sendOnboardingEmail(saved, request.getPassword());
+        } catch (Exception e) {
+            org.slf4j.LoggerFactory.getLogger(HrManagementController.class)
+                    .error("Error triggering manager onboarding email: {}", e.getMessage());
+        }
+
+        String msg = emailSent
+                ? "Manager created successfully and onboarding email sent."
+                : "Manager created successfully.";
+
+        Map<String, Object> responseBody = new java.util.HashMap<>();
+        responseBody.put("message", msg);
+        responseBody.put("id", saved.getId());
+        responseBody.put("name", saved.getName());
+        responseBody.put("email", saved.getEmail());
+        responseBody.put("reportingManagerId", saved.getManager() != null ? saved.getManager().getId() : null);
+        responseBody.put("reportingManagerName", saved.getManager() != null ? saved.getManager().getName() : null);
+        responseBody.put("emailSent", emailSent);
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(responseBody);
     }
 
     // 4b. Update Manager
@@ -263,7 +291,7 @@ public class HrManagementController {
         List<EmployeeDto> dtoList = allEmployees.stream()
                 .map(e -> EmployeeDto.builder()
                         .id(e.getId())
-                        .employeeCode("EMP-" + e.getId())
+                        .employeeCode(e.getEmployeeCode() != null && !e.getEmployeeCode().trim().isEmpty() ? e.getEmployeeCode() : "EMP-" + e.getId())
                         .name(e.getName())
                         .email(e.getEmail())
                         .role(e.getRole() != null ? e.getRole().name().replace("ROLE_", "") : "EMPLOYEE")
@@ -288,6 +316,9 @@ public class HrManagementController {
         String email = request.getEmail() != null ? request.getEmail().trim().toLowerCase() : "";
         String name = request.getEffectiveName();
 
+        if (request.getEmployeeCode() == null || request.getEmployeeCode().trim().isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Employee Code is mandatory.");
+        }
         if (email.isEmpty()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Email address is required.");
         }
@@ -306,8 +337,13 @@ public class HrManagementController {
         }
 
         Role role = Role.ROLE_EMPLOYEE;
-        if (request.getRole() != null && (request.getRole().equalsIgnoreCase("MANAGER") || request.getRole().equalsIgnoreCase("ROLE_MANAGER"))) {
-            role = Role.ROLE_MANAGER;
+        if (request.getRole() != null) {
+            String rStr = request.getRole().trim().toUpperCase();
+            if (rStr.equals("HR") || rStr.equals("ROLE_HR")) {
+                role = Role.ROLE_HR;
+            } else if (rStr.equals("MANAGER") || rStr.equals("ROLE_MANAGER")) {
+                role = Role.ROLE_MANAGER;
+            }
         }
 
         String designation = request.getDesignation();
@@ -322,6 +358,7 @@ public class HrManagementController {
 
         Employee employee = Employee.builder()
                 .name(name)
+                .employeeCode(request.getEmployeeCode().trim())
                 .email(email)
                 .password(passwordEncoder.encode(request.getPassword()))
                 .department(department.trim())
@@ -443,14 +480,16 @@ public class HrManagementController {
             employee.setTeam(request.getTeam().trim());
         }
 
-        // 4. Manager update (if provided; preserve existing if null)
+        // 4. Manager update
         if (request.getManagerId() != null) {
-            if (request.getManagerId().equals(id)) {
-                throw new ApiException(HttpStatus.BAD_REQUEST, "An employee cannot be their own reporting manager.");
-            }
+            validateReportingManager(id, request.getManagerId());
             Employee mgr = employeeRepository.findById(request.getManagerId())
                     .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "Selected reporting manager does not exist."));
             employee.setManager(mgr);
+        } else {
+            if (employee.getRole() == Role.ROLE_MANAGER || employee.getRole() == Role.ROLE_HR) {
+                employee.setManager(null);
+            }
         }
 
         // 5. Account Status
@@ -462,7 +501,7 @@ public class HrManagementController {
 
         EmployeeDto dto = EmployeeDto.builder()
                 .id(saved.getId())
-                .employeeCode("EMP-" + saved.getId())
+                .employeeCode(saved.getEmployeeCode() != null && !saved.getEmployeeCode().trim().isEmpty() ? saved.getEmployeeCode() : "EMP-" + saved.getId())
                 .name(saved.getName())
                 .email(saved.getEmail())
                 .role(saved.getRole() != null ? saved.getRole().name().replace("ROLE_", "") : "EMPLOYEE")

@@ -13,7 +13,7 @@ class EmployeeOnboardingEmailServiceLiveTest {
     @Disabled("Manual live integration test only")
     void testLiveBrevoSend() {
         EmployeeOnboardingEmailService service = new EmployeeOnboardingEmailService();
-        ReflectionTestUtils.setField(service, "brevoApiKey", "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");
+        ReflectionTestUtils.setField(service, "brevoApiKey", "test-brevo-api-key");
         ReflectionTestUtils.setField(service, "senderEmail", "demomanjunath@gmail.com");
         ReflectionTestUtils.setField(service, "senderName", "Aseuro PMS");
         ReflectionTestUtils.setField(service, "frontendUrl", "http://localhost:5173");

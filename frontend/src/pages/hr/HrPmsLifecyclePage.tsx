@@ -90,7 +90,7 @@ export const HrPmsLifecyclePage: React.FC = () => {
           selfCommentMap[k.kpiId] = k.employeeComments || k.comments || '';
           mgrRatingMap[k.kpiId] = k.managerRating !== null && k.managerRating !== undefined ? k.managerRating : '';
           mgrCommentMap[k.kpiId] = k.managerComments || '';
-          hrRatingMap[k.kpiId] = k.hrRating !== null && k.hrRating !== undefined ? k.hrRating : (k.managerRating !== null ? k.managerRating : '');
+          hrRatingMap[k.kpiId] = k.hrRating !== null && k.hrRating !== undefined ? k.hrRating : '';
           hrCommentMap[k.kpiId] = k.hrComments || '';
         });
 
@@ -589,6 +589,21 @@ export const HrPmsLifecyclePage: React.FC = () => {
                       : k.hrRating
                   }))}
                 />
+              )}
+
+              {/* Manager Feedback Summary Card */}
+              {lifecycleData.managerComments && (
+                <div className="bg-purple-50/70 border border-purple-200 p-4.5 rounded-2xl flex items-start space-x-3.5 shadow-2xs">
+                  <MessageSquare size={20} className="text-purple-600 shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="text-xs font-bold text-purple-900 uppercase tracking-wider">
+                      Reporting Manager Overall Assessment & Feedback
+                    </h4>
+                    <p className="text-xs text-purple-800 mt-1 leading-relaxed font-medium">
+                      "{lifecycleData.managerComments}"
+                    </p>
+                  </div>
+                </div>
               )}
 
               {/* Section 1: Role / Manager KPIs Matrix with Full HR Editing */}

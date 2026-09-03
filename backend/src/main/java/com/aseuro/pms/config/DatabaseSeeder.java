@@ -98,8 +98,9 @@ public class DatabaseSeeder implements CommandLineRunner {
                 // 1. Create Users
                 Employee manager = Employee.builder()
                                 .email("manager@aseuro.com")
-                                .password(passwordEncoder.encode("password"))
+                                .password(passwordEncoder.encode("Manager@12345"))
                                 .name("Alice Smith")
+                                .employeeCode("MGR-1001")
                                 .department("Engineering")
                                 .team("Core Platform")
                                 .designation("Engineering Manager")
@@ -112,7 +113,8 @@ public class DatabaseSeeder implements CommandLineRunner {
                 Employee hr = Employee.builder()
                                 .email("hr@aseuro.com")
                                 .password(passwordEncoder.encode("Hr@12345"))
-                                .name("Bob HR")
+                                .name("HR")
+                                .employeeCode("HR-1001")
                                 .department("Human Resources")
                                 .designation("HR Director")
                                 .manager(manager)
@@ -124,8 +126,9 @@ public class DatabaseSeeder implements CommandLineRunner {
 
                 Employee employee = Employee.builder()
                                 .email("employee@aseuro.com")
-                                .password(passwordEncoder.encode("password"))
+                                .password(passwordEncoder.encode("Emp@12345"))
                                 .name("John Doe")
+                                .employeeCode("EMP-1001")
                                 .department("Engineering")
                                 .team("Core Platform")
                                 .designation("Software Engineer")
@@ -939,8 +942,11 @@ public class DatabaseSeeder implements CommandLineRunner {
                         hr.setAccountStatus("ACTIVE");
                         hr.setFailedLoginAttempts(0);
                         hr.setLockedUntil(null);
-                        if (hr.getName() == null || hr.getName().trim().isEmpty()) {
-                                hr.setName("Bob HR");
+                        if (hr.getName() == null || hr.getName().trim().isEmpty() || "Bob HR".equals(hr.getName())) {
+                                hr.setName("HR");
+                        }
+                        if (hr.getEmployeeCode() == null || hr.getEmployeeCode().trim().isEmpty()) {
+                                hr.setEmployeeCode("HR-1001");
                         }
                         if (hr.getDepartment() == null || hr.getDepartment().trim().isEmpty()) {
                                 hr.setDepartment("Human Resources");
@@ -956,7 +962,8 @@ public class DatabaseSeeder implements CommandLineRunner {
                         hr = Employee.builder()
                                         .email("hr@aseuro.com")
                                         .password(passwordEncoder.encode("Hr@12345"))
-                                        .name("Bob HR")
+                                        .name("HR")
+                                        .employeeCode("HR-1001")
                                         .department("Human Resources")
                                         .designation("HR Director")
                                         .joiningDate(LocalDate.of(2022, 1, 15))
