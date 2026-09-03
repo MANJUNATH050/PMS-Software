@@ -84,14 +84,6 @@ const RootRedirect: React.FC = () => {
 };
 
 export const App: React.FC = () => {
-  React.useEffect(() => {
-    const redirectPath = sessionStorage.getItem('spa_redirect_path');
-    if (redirectPath) {
-      sessionStorage.removeItem('spa_redirect_path');
-      window.history.replaceState(null, '', redirectPath);
-    }
-  }, []);
-
   return (
     <AuthProvider>
       <Router>
