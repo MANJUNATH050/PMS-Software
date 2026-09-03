@@ -48,9 +48,12 @@ export const ManagerEmployeeReportsPage: React.FC = () => {
   };
 
   const filteredEmployees = (reportsData?.assignedEmployees || []).filter((emp) => {
-    // Under manager reports for team, ONLY finalized performance records can be shown
-    const isFinalized = emp.status === 'COMPLETED' || emp.status === 'FINAL_RESULT_PUBLISHED';
-    if (!isFinalized) return false;
+    if (selectedStatus === 'FINALIZED') {
+      const isFinalized = emp.status === 'COMPLETED' || emp.status === 'FINAL_RESULT_PUBLISHED';
+      if (!isFinalized) return false;
+    } else if (selectedStatus !== 'ALL') {
+      if (emp.status !== selectedStatus) return false;
+    }
 
     if (selectedEmployeeIdFilter !== 'ALL' && emp.id.toString() !== selectedEmployeeIdFilter) return false;
     if (selectedMonth !== 'ALL' && emp.cycleMonth !== selectedMonth) return false;
@@ -187,7 +190,14 @@ export const ManagerEmployeeReportsPage: React.FC = () => {
               onChange={(e) => setSelectedStatus(e.target.value)}
               className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-pms-green focus:bg-white"
             >
+              <option value="ALL">All PMS Statuses</option>
               <option value="FINALIZED">Finalized / Published Records Only</option>
+              <option value="SELF_ASSESSMENT_SUBMITTED">Self-Assessment Submitted</option>
+              <option value="MANAGER_REVIEW_PENDING">Manager Review Pending</option>
+              <option value="MANAGER_REVIEW_SUBMITTED">Manager Review Submitted</option>
+              <option value="HR_REVIEW_PENDING">HR Review Pending</option>
+              <option value="SELF_ASSESSMENT_DRAFT">Self-Assessment Draft</option>
+              <option value="PMS_NOT_STARTED">Not Started</option>
             </select>
           </div>
 
