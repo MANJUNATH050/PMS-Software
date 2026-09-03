@@ -92,6 +92,26 @@ public class DatabaseSeeder implements CommandLineRunner {
                                         }
                                 }
                         });
+
+                        // Ensure demo newly onboarded employee with mustChangePassword=true for testing
+                        if (employeeRepository.findByEmail("newemployee@aseuro.com").isEmpty()) {
+                                Employee mgr = employeeRepository.findByEmail("manager@aseuro.com").orElse(null);
+                                Employee newEmp = Employee.builder()
+                                                .email("newemployee@aseuro.com")
+                                                .password(passwordEncoder.encode("Temp@12345"))
+                                                .name("Alex Parker")
+                                                .employeeCode("EMP-1002")
+                                                .department("Engineering")
+                                                .team("Core Platform")
+                                                .designation("Software Engineer")
+                                                .manager(mgr)
+                                                .joiningDate(LocalDate.of(2026, 8, 1))
+                                                .accountStatus("ACTIVE")
+                                                .role(Role.ROLE_EMPLOYEE)
+                                                .mustChangePassword(true)
+                                                .build();
+                                employeeRepository.save(newEmp);
+                        }
                         return;
                 }
 
@@ -138,6 +158,22 @@ public class DatabaseSeeder implements CommandLineRunner {
                                 .role(Role.ROLE_EMPLOYEE)
                                 .build();
                 employeeRepository.save(employee);
+
+                Employee newEmployee = Employee.builder()
+                                .email("newemployee@aseuro.com")
+                                .password(passwordEncoder.encode("Temp@12345"))
+                                .name("Alex Parker")
+                                .employeeCode("EMP-1002")
+                                .department("Engineering")
+                                .team("Core Platform")
+                                .designation("Software Engineer")
+                                .manager(manager)
+                                .joiningDate(LocalDate.of(2026, 8, 1))
+                                .accountStatus("ACTIVE")
+                                .role(Role.ROLE_EMPLOYEE)
+                                .mustChangePassword(true)
+                                .build();
+                employeeRepository.save(newEmployee);
 
                 // 2. Create Active PMS Assignment for August 2026 (Fresh Self-Assessment Draft)
                 PmsAssignment currentAssignment = PmsAssignment.builder()

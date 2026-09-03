@@ -10,6 +10,7 @@ import java.util.Optional;
 @Repository
 public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     Optional<Employee> findByEmail(String email);
+    Optional<Employee> findByEmployeeCode(String employeeCode);
     List<Employee> findByManager(Employee manager);
     List<Employee> findByManagerId(Long managerId);
     long countByRole(com.aseuro.pms.model.Role role);

@@ -21,6 +21,10 @@ export const authApi = {
     const { data } = await apiClient.get('/auth/lock-status', { params: { email } });
     return data;
   },
+  changePassword: async (payload: { currentPassword: string; newPassword: string; confirmPassword?: string }) => {
+    const { data } = await apiClient.post('/auth/change-password', payload);
+    return data;
+  },
 };
 
 export type LoginCredentials = {

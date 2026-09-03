@@ -9,6 +9,7 @@ interface AuthContextType {
   logout: () => void;
   signIn: (session: any) => void;
   signOut: () => void;
+  updateUser: (updatedUser: Partial<User>) => void;
   isAuthenticated: boolean;
 }
 
@@ -60,6 +61,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(userData);
   };
 
+  const updateUser = (updatedUser: Partial<User>) => {
+    setUser((prev) => {
+      if (!prev) return null;
+      const next = { ...prev, ...updatedUser };
+      localStorage.setItem('pms_user', JSON.stringify(next));
+      return next;
+    });
+  };
+
   const logout = () => {
     localStorage.removeItem('pms_token');
     localStorage.removeItem('pms_access_token');
@@ -73,7 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, signIn, signOut, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, signIn, signOut, updateUser, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   );

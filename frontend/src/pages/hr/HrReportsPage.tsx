@@ -36,7 +36,7 @@ export const HrReportsPage: React.FC = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | ''>('');
   const [cycleMonth, setCycleMonth] = useState('August 2026');
-  const [reportType, setReportType] = useState('Detailed Performance Report');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const [summary, setSummary] = useState<HrReportSummary | null>(null);
   const [lifecycle, setLifecycle] = useState<EmployeeLifecycleData | null>(null);
@@ -95,10 +95,6 @@ export const HrReportsPage: React.FC = () => {
     if (selectedEmployeeId) {
       fetchEmployeeReport(Number(selectedEmployeeId), selectedCycle);
     }
-  };
-
-  const handleReportTypeChange = (selectedType: string) => {
-    setReportType(selectedType);
   };
 
   const handleDownload = async (format: 'pdf' | 'excel') => {
@@ -173,20 +169,29 @@ export const HrReportsPage: React.FC = () => {
 
       {/* 1. Rating Category Summary */}
       <div className="bg-white rounded-2xl border border-slate-200/70 p-6 shadow-sm space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center space-x-3">
             <div className="p-2.5 bg-amber-50 text-amber-700 rounded-xl border border-amber-200">
               <BarChart3 size={20} />
             </div>
             <div>
               <h3 className="text-base font-bold text-pms-gray">HR Rating Category Summary</h3>
-              <p className="text-xs text-slate-500">Distribution of finalized employee appraisals across corporate rating categories</p>
+              <p className="text-xs text-slate-500">Click any category below to drill-down and inspect staff list dynamically from database</p>
             </div>
           </div>
           {summary && summary.totalFinalizedRecords > 0 && (
-            <div className="text-right">
-              <span className="text-xs font-bold text-slate-400 block uppercase">Total Published</span>
-              <span className="text-lg font-extrabold text-pms-darkGreen">{summary.totalFinalizedRecords} Employees</span>
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                onClick={() => setSelectedCategory(selectedCategory === 'ALL' ? null : 'ALL')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+                  selectedCategory === 'ALL'
+                    ? 'bg-pms-darkGreen text-white border-pms-darkGreen shadow-xs'
+                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                All Employees ({summary.totalFinalizedRecords})
+              </button>
             </div>
           )}
         </div>
@@ -198,42 +203,168 @@ export const HrReportsPage: React.FC = () => {
             No finalized PMS results available yet. Results will appear dynamically when appraisals are completed.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-150 text-left">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase">Rating Category</th>
-                  <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase text-center">Score Range</th>
-                  <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase text-center">Employee Count</th>
-                  <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase text-right">Percentage</th>
-                  <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase">Distribution Visual</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 bg-white">
-                {summary.categories.map((cat) => (
-                  <tr key={cat.category} className="hover:bg-slate-50/50">
-                    <td className="px-5 py-3.5 text-xs font-bold text-pms-gray">{cat.category}</td>
-                    <td className="px-5 py-3.5 text-xs text-center text-slate-500 font-medium">
-                      {cat.category === 'Excellent' ? '≥ 4.20' : cat.category === 'Very Good' ? '3.80 - 4.19' : cat.category === 'Good' ? '3.00 - 3.79' : cat.category === 'Needs Improvement' ? '2.00 - 2.99' : '< 2.00'}
-                    </td>
-                    <td className="px-5 py-3.5 text-xs font-extrabold text-slate-700 text-center">
-                      {cat.count}
-                    </td>
-                    <td className="px-5 py-3.5 text-xs font-extrabold text-pms-darkGreen text-right">
-                      {cat.percentage}%
-                    </td>
-                    <td className="px-5 py-3.5 w-1/3">
-                      <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden border border-slate-200">
-                        <div
-                          className="bg-pms-green h-full rounded-full transition-all duration-500"
-                          style={{ width: `${cat.percentage}%` }}
-                        ></div>
-                      </div>
-                    </td>
+          <div className="space-y-4">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-150 text-left">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase">Rating Category</th>
+                    <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase text-center">Score Range</th>
+                    <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase text-center">Employee Count</th>
+                    <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase text-right">Percentage</th>
+                    <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase">Distribution Visual</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {summary.categories.map((cat) => {
+                    const isSelected = selectedCategory === cat.category;
+                    return (
+                      <tr
+                        key={cat.category}
+                        onClick={() => setSelectedCategory(isSelected ? null : cat.category)}
+                        className={`cursor-pointer transition-all ${
+                          isSelected
+                            ? 'bg-pms-lightGreen/40 font-bold border-l-4 border-pms-green'
+                            : 'hover:bg-slate-50/80'
+                        }`}
+                        title={`Click to view employees in ${cat.category}`}
+                      >
+                        <td className="px-5 py-3.5 text-xs font-bold text-pms-gray flex items-center space-x-2">
+                          <span className={`w-2.5 h-2.5 rounded-full ${
+                            cat.category === 'Excellent' ? 'bg-emerald-500' :
+                            cat.category === 'Very Good' ? 'bg-blue-500' :
+                            cat.category === 'Good' ? 'bg-amber-500' :
+                            cat.category === 'Needs Improvement' ? 'bg-orange-500' : 'bg-rose-500'
+                          }`} />
+                          <span>{cat.category}</span>
+                        </td>
+                        <td className="px-5 py-3.5 text-xs text-center text-slate-500 font-medium">
+                          {cat.category === 'Excellent' ? '≥ 4.20' : cat.category === 'Very Good' ? '3.80 - 4.19' : cat.category === 'Good' ? '3.00 - 3.79' : cat.category === 'Needs Improvement' ? '2.00 - 2.99' : '< 2.00'}
+                        </td>
+                        <td className="px-5 py-3.5 text-xs font-extrabold text-slate-700 text-center">
+                          <span className="inline-block px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-800 text-[11px] font-bold">
+                            {cat.count}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5 text-xs font-extrabold text-pms-darkGreen text-right">
+                          {cat.percentage}%
+                        </td>
+                        <td className="px-5 py-3.5 w-1/3">
+                          <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden border border-slate-200">
+                            <div
+                              className="bg-pms-green h-full rounded-full transition-all duration-500"
+                              style={{ width: `${cat.percentage}%` }}
+                            ></div>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Interactive Drill-Down Employees Table */}
+            {selectedCategory && (
+              <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-3 animate-fadeIn">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Users size={16} className="text-pms-darkGreen" />
+                    <h4 className="text-xs font-bold text-pms-gray">
+                      {selectedCategory === 'ALL' ? 'All Published Employees' : `${selectedCategory} Performance Staff`}
+                      <span className="ml-2 text-[11px] text-slate-500 font-normal">
+                        ({(selectedCategory === 'ALL'
+                          ? (summary.allEmployees || [])
+                          : (summary.categories.find(c => c.category === selectedCategory)?.employees || [])
+                        ).length} matching records)
+                      </span>
+                    </h4>
+                  </div>
+                  <button
+                    onClick={() => setSelectedCategory(null)}
+                    className="text-[11px] text-slate-400 hover:text-slate-600 font-semibold underline"
+                  >
+                    Close Filter
+                  </button>
+                </div>
+
+                {(() => {
+                  const drillDownList = selectedCategory === 'ALL'
+                    ? (summary.allEmployees || [])
+                    : (summary.categories.find(c => c.category === selectedCategory)?.employees || []);
+
+                  if (drillDownList.length === 0) {
+                    return (
+                      <p className="text-xs text-slate-400 py-3 text-center">
+                        No employees found in this rating category.
+                      </p>
+                    );
+                  }
+
+                  return (
+                    <div className="overflow-x-auto bg-white rounded-lg border border-slate-200">
+                      <table className="min-w-full divide-y divide-slate-150 text-left">
+                        <thead className="bg-slate-100/70">
+                          <tr>
+                            <th className="px-4 py-2.5 text-[11px] font-bold text-slate-500 uppercase">Code</th>
+                            <th className="px-4 py-2.5 text-[11px] font-bold text-slate-500 uppercase">Employee</th>
+                            <th className="px-4 py-2.5 text-[11px] font-bold text-slate-500 uppercase">Designation</th>
+                            <th className="px-4 py-2.5 text-[11px] font-bold text-slate-500 uppercase">Department</th>
+                            <th className="px-4 py-2.5 text-[11px] font-bold text-slate-500 uppercase text-center">Final Score</th>
+                            <th className="px-4 py-2.5 text-[11px] font-bold text-slate-500 uppercase text-center">Grade</th>
+                            <th className="px-4 py-2.5 text-[11px] font-bold text-slate-500 uppercase text-center">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-xs">
+                          {drillDownList.map((emp) => (
+                            <tr key={emp.employeeId || emp.employeeCode} className="hover:bg-slate-50/70">
+                              <td className="px-4 py-2.5 font-mono font-bold text-slate-700">
+                                {emp.employeeCode}
+                              </td>
+                              <td className="px-4 py-2.5 font-bold text-pms-gray">
+                                {emp.name}
+                                <span className="block text-[10px] text-slate-400 font-normal font-mono">{emp.email}</span>
+                              </td>
+                              <td className="px-4 py-2.5 text-slate-600 font-medium">
+                                {emp.designation}
+                              </td>
+                              <td className="px-4 py-2.5 text-slate-500">
+                                {emp.department}
+                              </td>
+                              <td className="px-4 py-2.5 text-center font-extrabold text-pms-darkGreen">
+                                {emp.finalScore !== undefined && emp.finalScore !== null ? Number(emp.finalScore).toFixed(2) : '-'}
+                              </td>
+                              <td className="px-4 py-2.5 text-center">
+                                <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                  {emp.grade || '-'}
+                                </span>
+                              </td>
+                              <td className="px-4 py-2.5 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (emp.employeeId) {
+                                      handleEmployeeChange(emp.employeeId);
+                                      const reportSection = document.getElementById('report-detail-card');
+                                      if (reportSection) {
+                                        reportSection.scrollIntoView({ behavior: 'smooth' });
+                                      }
+                                    }
+                                  }}
+                                  className="px-2.5 py-1 bg-pms-lightGreen hover:bg-pms-green hover:text-white text-pms-darkGreen rounded-lg text-[10px] font-bold transition-all shadow-2xs"
+                                >
+                                  View Report
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -246,12 +377,12 @@ export const HrReportsPage: React.FC = () => {
           </div>
           <div>
             <h3 className="text-base font-bold text-pms-gray">Generate Individual Appraisal Reports</h3>
-            <p className="text-xs text-slate-500">Select employee, appraisal cycle month, and report format type to dynamically generate preview and export</p>
+            <p className="text-xs text-slate-500">Select employee and appraisal cycle month to dynamically generate preview and export</p>
           </div>
         </div>
 
         {/* Dynamic Filter Controls */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {/* Employee Filter */}
           <div>
             <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
@@ -286,29 +417,13 @@ export const HrReportsPage: React.FC = () => {
               <option value="May 2026">May 2026 (Finalized)</option>
             </select>
           </div>
-
-          {/* Report Type Filter */}
-          <div>
-            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
-              Report Format Type:
-            </label>
-            <select
-              value={reportType}
-              onChange={(e) => handleReportTypeChange(e.target.value)}
-              className="block w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-pms-gray focus:ring-2 focus:ring-pms-green/50 bg-slate-50/50"
-            >
-              <option value="Detailed Performance Report">Detailed Performance Report</option>
-              <option value="KPI Weightage Breakdown">KPI Weightage Breakdown</option>
-              <option value="Manager & HR Review Sheet">Manager & HR Review Sheet</option>
-            </select>
-          </div>
         </div>
 
         {/* Report Target & Action Bar */}
         <div className="pt-4 border-t border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <p className="text-xs font-bold text-pms-gray">
-              Report Target: <span className="text-pms-darkGreen font-extrabold">{selectedEmployeeObj?.name || 'Selected Employee'}</span> • {cycleMonth} • {reportType}
+              Report Target: <span className="text-pms-darkGreen font-extrabold">{selectedEmployeeObj?.name || 'Selected Employee'}</span> • {cycleMonth}
             </p>
             <p className="text-[11px] text-slate-500 mt-0.5">
               Status: <strong className="text-slate-700">{lifecycle?.status?.replace(/_/g, ' ') || 'ACTIVE'}</strong> • {lifecycle?.kpis?.length || 0} Assigned KPIs
@@ -351,7 +466,7 @@ export const HrReportsPage: React.FC = () => {
           <p className="text-xs text-slate-400 font-normal">Please select another employee or appraisal cycle month.</p>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div id="report-detail-card" className="space-y-6">
           {/* Employee Header & Information Card */}
           <div className="bg-white rounded-2xl border border-slate-200/70 p-6 shadow-sm space-y-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">

@@ -34,6 +34,8 @@ public class HrManagementController {
 
     private final EmployeeRepository employeeRepository;
     private final PmsAssignmentRepository pmsAssignmentRepository;
+    private final PmsHistoryRepository pmsHistoryRepository;
+    private final com.aseuro.pms.repository.DepartmentRepository departmentRepository;
     private final PmsKpiRepository pmsKpiRepository;
     private final KpiMasterRepository kpiMasterRepository;
     private final PasswordEncoder passwordEncoder;
@@ -50,7 +52,10 @@ public class HrManagementController {
         long totalMgr = employeeRepository.countByRole(Role.ROLE_MANAGER);
         long totalDesig = hrKpiService.getAllDesignations().size();
 
-        long completed = pmsAssignmentRepository.countByStatusIn(List.of(PMSState.COMPLETED, PMSState.FINAL_RESULT_PUBLISHED));
+        long completed = pmsHistoryRepository.count();
+        if (completed == 0) {
+            completed = pmsAssignmentRepository.countByStatusIn(List.of(PMSState.COMPLETED, PMSState.FINAL_RESULT_PUBLISHED));
+        }
         long pendingSelf = pmsAssignmentRepository.countByStatusIn(List.of(PMSState.PMS_STARTED, PMSState.SELF_ASSESSMENT_DRAFT));
         long pendingMgr = pmsAssignmentRepository.countByStatusIn(List.of(PMSState.SELF_ASSESSMENT_SUBMITTED, PMSState.MANAGER_REVIEW_PENDING));
         long pendingHr = pmsAssignmentRepository.countByStatusIn(List.of(PMSState.MANAGER_REVIEW_SUBMITTED, PMSState.HR_REVIEW_PENDING));
@@ -168,18 +173,53 @@ public class HrManagementController {
         return ResponseEntity.ok(list);
     }
 
-    // 3b. Department List
+    // 3b. Department List & Create Endpoints
     @GetMapping("/departments")
     public ResponseEntity<List<String>> getDepartments() {
         List<String> defaultDepts = List.of("Engineering", "Human Resources", "Quality Assurance", "Product", "Operations", "Sales", "Marketing", "Finance");
         Set<String> set = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
         set.addAll(defaultDepts);
+        
+        try {
+            departmentRepository.findAll().forEach(d -> {
+                if (d.getName() != null && !d.getName().trim().isEmpty()) {
+                    set.add(d.getName().trim());
+                }
+            });
+        } catch (Exception ignored) {}
+
         employeeRepository.findAll().forEach(e -> {
             if (e.getDepartment() != null && !e.getDepartment().trim().isEmpty()) {
                 set.add(e.getDepartment().trim());
             }
         });
         return ResponseEntity.ok(new ArrayList<>(set));
+    }
+
+    @PostMapping("/departments")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> createDepartment(@RequestBody Map<String, String> body) {
+        String deptName = body.get("name");
+        if (deptName == null || deptName.trim().isEmpty()) {
+            deptName = body.get("department");
+        }
+        if (deptName == null || deptName.trim().isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Department name is required.");
+        }
+        String cleanName = deptName.trim();
+        String description = body.get("description");
+
+        try {
+            if (departmentRepository.findByNameIgnoreCase(cleanName).isEmpty()) {
+                com.aseuro.pms.entity.Department dept = new com.aseuro.pms.entity.Department(cleanName, description != null ? description.trim() : cleanName + " Department");
+                departmentRepository.save(dept);
+            }
+        } catch (Exception ignored) {}
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+                "message", "Department created successfully.",
+                "name", cleanName
+        ));
     }
 
     // 4. Create Manager
@@ -317,6 +357,10 @@ public class HrManagementController {
         if (request.getEmployeeCode() == null || request.getEmployeeCode().trim().isEmpty()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Employee Code is mandatory.");
         }
+        String empCode = request.getEmployeeCode().trim();
+        if (employeeRepository.findByEmployeeCode(empCode).isPresent()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Employee Code '" + empCode + "' already exists in the system.");
+        }
         if (email.isEmpty()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Email address is required.");
         }
@@ -366,6 +410,7 @@ public class HrManagementController {
                 .joiningDate(request.getJoiningDate() != null ? request.getJoiningDate() : LocalDate.now())
                 .accountStatus("ACTIVE")
                 .role(role)
+                .mustChangePassword(true)
                 .build();
 
         Employee saved = employeeRepository.save(employee);
@@ -493,6 +538,16 @@ public class HrManagementController {
         // 5. Account Status
         if (request.getAccountStatus() != null && !request.getAccountStatus().trim().isEmpty()) {
             employee.setAccountStatus(request.getAccountStatus().trim().toUpperCase());
+        }
+
+        // 6. Employee Code update (if provided)
+        if (request.getEmployeeCode() != null && !request.getEmployeeCode().trim().isEmpty()) {
+            String updatedCode = request.getEmployeeCode().trim();
+            Optional<Employee> existingWithCode = employeeRepository.findByEmployeeCode(updatedCode);
+            if (existingWithCode.isPresent() && !existingWithCode.get().getId().equals(id)) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Employee Code '" + updatedCode + "' is already in use by another employee.");
+            }
+            employee.setEmployeeCode(updatedCode);
         }
 
         Employee saved = employeeRepository.save(employee);

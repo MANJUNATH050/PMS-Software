@@ -70,6 +70,13 @@ export interface User {
   email: string;
   name: string;
   role: string;
+  mustChangePassword?: boolean;
+}
+
+export interface ChangePasswordPayload {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword?: string;
 }
 
 export interface Employee {
@@ -226,16 +233,31 @@ export interface EmployeeLifecycleData {
   }>;
 }
 
+export interface CategoryEmployee {
+  employeeId?: number;
+  employeeCode?: string;
+  name?: string;
+  email?: string;
+  designation?: string;
+  department?: string;
+  cycleMonth?: string;
+  finalScore?: number;
+  grade?: string;
+  assignmentId?: number;
+}
+
 export interface RatingCategoryItem {
   category: string;
   count: number;
   percentage: number;
+  employees?: CategoryEmployee[];
 }
 
 export interface HrReportSummary {
   categories: RatingCategoryItem[];
   totalFinalizedRecords: number;
   averageScore: number | null;
+  allEmployees?: CategoryEmployee[];
 }
 
 export interface CreateEmployeePayload {

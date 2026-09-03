@@ -15,6 +15,7 @@ public class HrReportSummaryDto {
     private List<RatingCategoryDto> categories;
     private long totalFinalizedRecords;
     private Double averageScore;
+    private List<CategoryEmployeeDto> allEmployees;
 
     @Data
     @Builder
@@ -24,5 +25,23 @@ public class HrReportSummaryDto {
         private String category;
         private long count;
         private double percentage;
+        private List<CategoryEmployeeDto> employees;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CategoryEmployeeDto {
+        private Long employeeId;
+        private String employeeCode;
+        private String name;
+        private String email;
+        private String designation;
+        private String department;
+        private String cycleMonth;
+        private Double finalScore;
+        private String grade;
+        private Long assignmentId;
     }
 }

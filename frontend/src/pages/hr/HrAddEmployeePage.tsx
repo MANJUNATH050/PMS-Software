@@ -118,10 +118,15 @@ export const HrAddEmployeePage: React.FC = () => {
     fetchKpisForDesignation(newDesig);
   };
 
-  const handleCreateDept = (e: React.FormEvent) => {
+  const handleCreateDept = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newDeptName.trim()) return;
     const trimmed = newDeptName.trim();
+    try {
+      await hrApi.createDepartment(trimmed);
+    } catch (err) {
+      console.error('Failed to persist department on backend', err);
+    }
     if (!departments.includes(trimmed)) {
       setDepartments(prev => [...prev, trimmed]);
     }

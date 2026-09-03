@@ -36,8 +36,7 @@ public class Department {
     private String description;
 
     @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(nullable = false, columnDefinition = "record_status")
+    @Column(name = "status", length = 50)
     private RecordStatus status = RecordStatus.ACTIVE;
 
     @CreationTimestamp

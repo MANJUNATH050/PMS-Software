@@ -17,6 +17,7 @@ import {
   BarChart3,
   ClipboardList
 } from 'lucide-react';
+import { ResetPasswordModal } from '../components/ResetPasswordModal';
 
 interface SidebarItemProps {
   to: string;
@@ -71,14 +72,12 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
 
   const hrNavigation = [
     { name: 'Dashboard', href: '/hr/dashboard', icon: <LayoutDashboard size={20} /> },
-    { name: 'My KPIs', href: '/kpis', icon: <Target size={20} /> },
     { name: 'Add Employee', href: '/hr/employees/add', icon: <UserPlus size={20} /> },
     { name: 'Employee Directory', href: '/hr/employees', icon: <Users size={20} /> },
     { name: 'Add/Edit Managers', href: '/hr/managers', icon: <UserCheck size={20} /> },
     { name: 'Add/Edit KPIs', href: '/hr/kpis', icon: <Target size={20} /> },
     { name: 'PMS Lifecycle', href: '/hr/pms-lifecycle', icon: <RefreshCw size={20} /> },
     { name: 'Generate Reports', href: '/hr/reports', icon: <FileText size={20} /> },
-    { name: 'My Reports', href: '/reports', icon: <FileText size={20} /> },
   ];
 
   const navigation = isHr ? hrNavigation : isManager ? managerNavigation : employeeNavigation;
@@ -249,6 +248,12 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
           {children}
         </div>
       </main>
+
+      {/* Mandatory First-Login Password Reset Modal */}
+      <ResetPasswordModal
+        isOpen={Boolean(user?.mustChangePassword)}
+        isMandatory={true}
+      />
     </div>
   );
 };

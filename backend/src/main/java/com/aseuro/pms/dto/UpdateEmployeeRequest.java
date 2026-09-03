@@ -16,4 +16,5 @@ public class UpdateEmployeeRequest {
     private String team;
     private Long managerId;
     private String accountStatus;
+    private String employeeCode;
 }

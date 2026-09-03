@@ -1,7 +1,9 @@
 package com.aseuro.pms.controller;
 
+import com.aseuro.pms.dto.ChangePasswordRequest;
 import com.aseuro.pms.dto.ForgotPasswordRequest;
 import com.aseuro.pms.dto.LoginRequest;
+import com.aseuro.pms.dto.LoginResponse;
 import com.aseuro.pms.dto.ResetPasswordRequest;
 import com.aseuro.pms.model.Employee;
 import com.aseuro.pms.model.PasswordResetToken;
@@ -23,6 +25,8 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
@@ -71,6 +75,7 @@ public class AuthControllerTest {
                 .accountStatus("ACTIVE")
                 .failedLoginAttempts(0)
                 .lockedUntil(null)
+                .mustChangePassword(false)
                 .build();
     }
 
@@ -96,6 +101,34 @@ public class AuthControllerTest {
         assertEquals(0, employee.getFailedLoginAttempts());
         assertNull(employee.getLockedUntil());
         verify(employeeRepository).save(employee);
+
+        assertTrue(response.getBody() instanceof LoginResponse);
+        LoginResponse lr = (LoginResponse) response.getBody();
+        assertFalse(lr.getMustChangePassword());
+    }
+
+    @Test
+    void testLogin_ReturnsMustChangePasswordTrue_ForNewEmployee() {
+        employee.setMustChangePassword(true);
+        when(employeeRepository.findByEmail("employee@aseuro.com")).thenReturn(Optional.of(employee));
+
+        Authentication auth = mock(Authentication.class);
+        UserPrincipal principal = mock(UserPrincipal.class);
+        when(principal.getId()).thenReturn(1L);
+        when(principal.getUsername()).thenReturn("employee@aseuro.com");
+        when(principal.getEmployee()).thenReturn(employee);
+        when(auth.getPrincipal()).thenReturn(principal);
+
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class))).thenReturn(auth);
+        when(tokenProvider.generateToken(auth)).thenReturn("mock.jwt.token");
+
+        LoginRequest request = new LoginRequest("employee@aseuro.com", "Temp@12345", "EMPLOYEE");
+        ResponseEntity<?> response = authController.login(request);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertTrue(response.getBody() instanceof LoginResponse);
+        LoginResponse lr = (LoginResponse) response.getBody();
+        assertTrue(lr.getMustChangePassword());
     }
 
     @Test
@@ -178,7 +211,8 @@ public class AuthControllerTest {
         when(employeeRepository.findByEmail("employee@aseuro.com")).thenReturn(Optional.of(employee));
         when(passwordEncoder.encode("NewPass123!")).thenReturn("$2a$10$newHashedPassword");
 
-        ResetPasswordRequest request = new ResetPasswordRequest(null, "NewPass123!", "NewPass123!", "employee@aseuro.com");
+        ResetPasswordRequest request = new ResetPasswordRequest(null, "NewPass123!", "NewPass123!",
+                "employee@aseuro.com");
         ResponseEntity<?> response = authController.resetPassword(request);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -190,7 +224,8 @@ public class AuthControllerTest {
 
     @Test
     void testResetPassword_MismatchingPasswords_ReturnsBadRequest() {
-        ResetPasswordRequest request = new ResetPasswordRequest(null, "NewPass123!", "Different123!", "employee@aseuro.com");
+        ResetPasswordRequest request = new ResetPasswordRequest(null, "NewPass123!", "Different123!",
+                "employee@aseuro.com");
         ResponseEntity<?> response = authController.resetPassword(request);
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
@@ -211,5 +246,133 @@ public class AuthControllerTest {
         assertNotNull(body);
         assertEquals(true, body.get("locked"));
         assertTrue((Long) body.get("remainingSeconds") > 0);
+    }
+
+    // ========== Change Password Endpoint Tests ==========
+
+    @Test
+    void testChangePassword_NotAuthenticated_ReturnsUnauthorized() {
+        SecurityContextHolder.clearContext();
+
+        ChangePasswordRequest request = new ChangePasswordRequest("Temp@12345", "NewPass@2026!", "NewPass@2026!");
+        ResponseEntity<?> response = authController.changePassword(request);
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+    }
+
+    @Test
+    void testChangePassword_WrongCurrentPassword_ReturnsBadRequest() {
+        Authentication auth = mock(Authentication.class);
+        UserPrincipal principal = new UserPrincipal(employee);
+        when(auth.getPrincipal()).thenReturn(principal);
+        SecurityContext securityContext = mock(SecurityContext.class);
+        when(securityContext.getAuthentication()).thenReturn(auth);
+        SecurityContextHolder.setContext(securityContext);
+
+        when(employeeRepository.findById(1L)).thenReturn(Optional.of(employee));
+        when(passwordEncoder.matches("WrongCurrent", employee.getPassword())).thenReturn(false);
+
+        ChangePasswordRequest request = new ChangePasswordRequest("WrongCurrent", "NewPass@2026!", "NewPass@2026!");
+        ResponseEntity<?> response = authController.changePassword(request);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        Map<?, ?> body = (Map<?, ?>) response.getBody();
+        assertNotNull(body);
+        assertEquals("Current password is incorrect.", body.get("message"));
+    }
+
+    @Test
+    void testChangePassword_WeakPassword_ReturnsBadRequest() {
+        Authentication auth = mock(Authentication.class);
+        UserPrincipal principal = new UserPrincipal(employee);
+        when(auth.getPrincipal()).thenReturn(principal);
+        SecurityContext securityContext = mock(SecurityContext.class);
+        when(securityContext.getAuthentication()).thenReturn(auth);
+        SecurityContextHolder.setContext(securityContext);
+
+        when(employeeRepository.findById(1L)).thenReturn(Optional.of(employee));
+        when(passwordEncoder.matches("Temp@12345", employee.getPassword())).thenReturn(true);
+
+        // Weak: no uppercase or special char
+        ChangePasswordRequest request = new ChangePasswordRequest("Temp@12345", "weakpassword1", "weakpassword1");
+        ResponseEntity<?> response = authController.changePassword(request);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        Map<?, ?> body = (Map<?, ?>) response.getBody();
+        assertNotNull(body);
+        assertTrue(((String) body.get("message")).contains("Password must contain at least one uppercase letter"));
+    }
+
+    @Test
+    void testChangePassword_SameAsCurrentPassword_ReturnsBadRequest() {
+        Authentication auth = mock(Authentication.class);
+        UserPrincipal principal = new UserPrincipal(employee);
+        when(auth.getPrincipal()).thenReturn(principal);
+        SecurityContext securityContext = mock(SecurityContext.class);
+        when(securityContext.getAuthentication()).thenReturn(auth);
+        SecurityContextHolder.setContext(securityContext);
+
+        when(employeeRepository.findById(1L)).thenReturn(Optional.of(employee));
+        when(passwordEncoder.matches("Temp@12345", employee.getPassword())).thenReturn(true);
+
+        ChangePasswordRequest request = new ChangePasswordRequest("Temp@12345", "Temp@12345", "Temp@12345");
+        ResponseEntity<?> response = authController.changePassword(request);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        Map<?, ?> body = (Map<?, ?>) response.getBody();
+        assertNotNull(body);
+        assertEquals("New password cannot be the same as the current password.", body.get("message"));
+    }
+
+    @Test
+    void testChangePassword_MismatchedConfirmPassword_ReturnsBadRequest() {
+        Authentication auth = mock(Authentication.class);
+        UserPrincipal principal = new UserPrincipal(employee);
+        when(auth.getPrincipal()).thenReturn(principal);
+        SecurityContext securityContext = mock(SecurityContext.class);
+        when(securityContext.getAuthentication()).thenReturn(auth);
+        SecurityContextHolder.setContext(securityContext);
+
+        when(employeeRepository.findById(1L)).thenReturn(Optional.of(employee));
+        when(passwordEncoder.matches("Temp@12345", employee.getPassword())).thenReturn(true);
+
+        ChangePasswordRequest request = new ChangePasswordRequest("Temp@12345", "NewPass@2026!", "Different@2026!");
+        ResponseEntity<?> response = authController.changePassword(request);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        Map<?, ?> body = (Map<?, ?>) response.getBody();
+        assertNotNull(body);
+        assertEquals("New password and confirm password do not match.", body.get("message"));
+    }
+
+    @Test
+    void testChangePassword_Success_UpdatesPasswordAndClearsFlag() {
+        employee.setMustChangePassword(true);
+        Authentication auth = mock(Authentication.class);
+        UserPrincipal principal = new UserPrincipal(employee);
+        when(auth.getPrincipal()).thenReturn(principal);
+        SecurityContext securityContext = mock(SecurityContext.class);
+        when(securityContext.getAuthentication()).thenReturn(auth);
+        SecurityContextHolder.setContext(securityContext);
+
+        when(employeeRepository.findById(1L)).thenReturn(Optional.of(employee));
+        when(passwordEncoder.matches("Temp@12345", employee.getPassword())).thenReturn(true);
+        when(passwordEncoder.matches("NewPass@2026!", employee.getPassword())).thenReturn(false);
+        when(passwordEncoder.encode("NewPass@2026!")).thenReturn("$2a$10$newEncodedPass");
+
+        ChangePasswordRequest request = new ChangePasswordRequest("Temp@12345", "NewPass@2026!", "NewPass@2026!");
+        ResponseEntity<?> response = authController.changePassword(request);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals("$2a$10$newEncodedPass", employee.getPassword());
+        assertFalse(employee.getMustChangePassword());
+        assertEquals(0, employee.getFailedLoginAttempts());
+        assertNull(employee.getLockedUntil());
+        verify(employeeRepository).save(employee);
+
+        Map<?, ?> body = (Map<?, ?>) response.getBody();
+        assertNotNull(body);
+        assertEquals("Password changed successfully.", body.get("message"));
+        assertEquals(false, body.get("mustChangePassword"));
     }
 }

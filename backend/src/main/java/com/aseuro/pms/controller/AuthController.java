@@ -1,5 +1,6 @@
 package com.aseuro.pms.controller;
 
+import com.aseuro.pms.dto.ChangePasswordRequest;
 import com.aseuro.pms.dto.ForgotPasswordRequest;
 import com.aseuro.pms.dto.LoginRequest;
 import com.aseuro.pms.dto.LoginResponse;
@@ -150,6 +151,7 @@ public class AuthController {
                     .email(userPrincipal.getUsername())
                     .name(userPrincipal.getEmployee().getName())
                     .role(userPrincipal.getEmployee().getRole().name())
+                    .mustChangePassword(Boolean.TRUE.equals(emp.getMustChangePassword()))
                     .build());
         } catch (Exception e) {
             // Track consecutive failed login attempts
@@ -341,6 +343,114 @@ public class AuthController {
         }
 
         return ResponseEntity.ok(Map.of("message", "Password reset successfully. You can now log in with your new password."));
+    }
+
+    // ========== CHANGE PASSWORD (AUTHENTICATED) ==========
+
+    @PostMapping("/change-password")
+    public ResponseEntity<?> changePassword(@RequestBody ChangePasswordRequest request) {
+        return changePassword(request, null);
+    }
+
+    public ResponseEntity<?> changePassword(
+            ChangePasswordRequest request,
+            UserPrincipal userPrincipal) {
+        
+        UserPrincipal principal = userPrincipal;
+        if (principal == null) {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.getPrincipal() instanceof UserPrincipal) {
+                principal = (UserPrincipal) auth.getPrincipal();
+            }
+        }
+
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "User is not authenticated."));
+        }
+
+        Optional<Employee> empOpt = Optional.empty();
+        if (principal.getId() != null) {
+            empOpt = employeeRepository.findById(principal.getId());
+        }
+        if (empOpt.isEmpty() && principal.getUsername() != null) {
+            empOpt = employeeRepository.findByEmail(principal.getUsername().trim());
+        }
+
+        if (empOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("message", "Employee account not found."));
+        }
+
+        Employee emp = empOpt.get();
+
+        // 1. Verify Current Password
+        String currentPass = request.getCurrentPassword();
+        if (currentPass == null || currentPass.trim().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", "Current password is required."));
+        }
+
+        if (!passwordEncoder.matches(request.getCurrentPassword(), emp.getPassword())) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", "Current password is incorrect."));
+        }
+
+        // 2. Validate New Password
+        String newPassword = request.getNewPassword();
+        if (newPassword == null || newPassword.trim().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", "New password is required."));
+        }
+
+        if (newPassword.length() < 8) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", "Password must be at least 8 characters long."));
+        }
+
+        // Security requirements: min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special character
+        boolean hasUpper = false;
+        boolean hasLower = false;
+        boolean hasDigit = false;
+        boolean hasSpecial = false;
+
+        for (char c : newPassword.toCharArray()) {
+            if (Character.isUpperCase(c)) hasUpper = true;
+            else if (Character.isLowerCase(c)) hasLower = true;
+            else if (Character.isDigit(c)) hasDigit = true;
+            else hasSpecial = true;
+        }
+
+        if (!hasUpper || !hasLower || !hasDigit || !hasSpecial) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character."));
+        }
+
+        // 3. Reject if new password same as current password
+        if (passwordEncoder.matches(newPassword, emp.getPassword())) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", "New password cannot be the same as the current password."));
+        }
+
+        // 4. Validate Confirm Password if provided
+        if (request.getConfirmPassword() != null && !request.getConfirmPassword().isEmpty()) {
+            if (!newPassword.equals(request.getConfirmPassword())) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("message", "New password and confirm password do not match."));
+            }
+        }
+
+        // 5. Update Password & clear mustChangePassword
+        emp.setPassword(passwordEncoder.encode(newPassword));
+        emp.setMustChangePassword(false);
+        emp.setFailedLoginAttempts(0);
+        emp.setLockedUntil(null);
+        employeeRepository.save(emp);
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Password changed successfully.",
+                "mustChangePassword", false
+        ));
     }
 
     // ========== HELPER METHODS ==========
