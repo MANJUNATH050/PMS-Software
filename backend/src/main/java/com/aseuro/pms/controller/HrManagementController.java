@@ -46,16 +46,14 @@ public class HrManagementController {
     // 1. Dashboard Overview Stats
     @GetMapping("/dashboard")
     public ResponseEntity<HrDashboardStatsDto> getDashboardStats() {
-        List<Employee> allEmployees = employeeRepository.findAll();
-        long totalEmp = allEmployees.stream().filter(e -> e.getRole() != Role.ROLE_HR).count();
-        long totalMgr = allEmployees.stream().filter(e -> e.getRole() == Role.ROLE_MANAGER).count();
+        long totalEmp = employeeRepository.countByRoleNot(Role.ROLE_HR);
+        long totalMgr = employeeRepository.countByRole(Role.ROLE_MANAGER);
         long totalDesig = hrKpiService.getAllDesignations().size();
 
-        List<PmsAssignment> assignments = pmsAssignmentRepository.findAll();
-        long completed = assignments.stream().filter(a -> a.getStatus() == PMSState.COMPLETED || a.getStatus() == PMSState.FINAL_RESULT_PUBLISHED).count();
-        long pendingSelf = assignments.stream().filter(a -> a.getStatus() == PMSState.PMS_STARTED || a.getStatus() == PMSState.SELF_ASSESSMENT_DRAFT).count();
-        long pendingMgr = assignments.stream().filter(a -> a.getStatus() == PMSState.SELF_ASSESSMENT_SUBMITTED || a.getStatus() == PMSState.MANAGER_REVIEW_PENDING).count();
-        long pendingHr = assignments.stream().filter(a -> a.getStatus() == PMSState.MANAGER_REVIEW_SUBMITTED || a.getStatus() == PMSState.HR_REVIEW_PENDING).count();
+        long completed = pmsAssignmentRepository.countByStatusIn(List.of(PMSState.COMPLETED, PMSState.FINAL_RESULT_PUBLISHED));
+        long pendingSelf = pmsAssignmentRepository.countByStatusIn(List.of(PMSState.PMS_STARTED, PMSState.SELF_ASSESSMENT_DRAFT));
+        long pendingMgr = pmsAssignmentRepository.countByStatusIn(List.of(PMSState.SELF_ASSESSMENT_SUBMITTED, PMSState.MANAGER_REVIEW_PENDING));
+        long pendingHr = pmsAssignmentRepository.countByStatusIn(List.of(PMSState.MANAGER_REVIEW_SUBMITTED, PMSState.HR_REVIEW_PENDING));
 
         HrDashboardStatsDto stats = HrDashboardStatsDto.builder()
                 .totalEmployees(totalEmp)

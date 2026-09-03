@@ -12,4 +12,6 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     Optional<Employee> findByEmail(String email);
     List<Employee> findByManager(Employee manager);
     List<Employee> findByManagerId(Long managerId);
+    long countByRole(com.aseuro.pms.model.Role role);
+    long countByRoleNot(com.aseuro.pms.model.Role role);
 }
