@@ -257,8 +257,13 @@ public class ManagerService {
             item.put("weightage", kpi.getWeightage());
             item.put("selfRating", r != null ? r.getSelfRating() : null);
             item.put("employeeComments", r != null ? r.getComments() : null);
+            item.put("employeeComment", r != null ? r.getComments() : null);
             item.put("managerRating", r != null ? r.getManagerRating() : null);
-            item.put("managerComments", r != null && r.getComments() != null ? r.getComments() : null);
+            item.put("managerComments", r != null ? r.getManagerComment() : null);
+            item.put("managerComment", r != null ? r.getManagerComment() : null);
+            item.put("hrRating", r != null ? r.getHrRating() : null);
+            item.put("hrComments", r != null ? r.getHrComment() : null);
+            item.put("hrComment", r != null ? r.getHrComment() : null);
 
             if (r != null && r.getSelfRating() != null) {
                 selfWeightedSum += r.getSelfRating() * (kpi.getWeightage() / 100.0);
@@ -352,6 +357,9 @@ public class ManagerService {
                             .build());
 
             rating.setManagerRating(entry.getManagerRating());
+            if (entry.getEffectiveManagerComment() != null) {
+                rating.setManagerComment(entry.getEffectiveManagerComment());
+            }
             rating.setStatus("MANAGER_REVIEWED");
             employeeKpiRatingRepository.save(rating);
         }
@@ -464,10 +472,13 @@ public class ManagerService {
             item.put("kpiCategory", kpi.getKpiCategory());
             item.put("selfRating", r != null ? r.getSelfRating() : null);
             item.put("employeeComments", r != null ? (r.getComments() != null ? r.getComments() : r.getEmployeeComment()) : null);
+            item.put("employeeComment", r != null ? (r.getComments() != null ? r.getComments() : r.getEmployeeComment()) : null);
             item.put("managerRating", r != null ? r.getManagerRating() : null);
             item.put("managerComments", r != null ? r.getManagerComment() : null);
+            item.put("managerComment", r != null ? r.getManagerComment() : null);
             item.put("hrRating", r != null ? r.getHrRating() : null);
             item.put("hrComments", r != null ? r.getHrComment() : null);
+            item.put("hrComment", r != null ? r.getHrComment() : null);
             double w = kpi.getWeightage() / 100.0;
             if (r != null && r.getSelfRating() != null) selfWeightedSum += r.getSelfRating() * w;
             if (r != null && r.getManagerRating() != null) managerWeightedSum += r.getManagerRating() * w;

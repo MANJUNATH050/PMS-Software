@@ -49,14 +49,17 @@ public class ReportService {
                 .orElseThrow(() -> new IllegalArgumentException("Assignment not found"));
 
         Employee reqUser = employeeRepository.findById(employeeId).orElse(null);
-        boolean isHrOrManager = reqUser != null && (reqUser.getRole() == Role.ROLE_HR || reqUser.getRole() == Role.ROLE_MANAGER);
+        boolean isHrOrManager = reqUser != null
+                && (reqUser.getRole() == Role.ROLE_HR || reqUser.getRole() == Role.ROLE_MANAGER);
 
-        if (assignment.getEmployee() != null && !assignment.getEmployee().getId().equals(employeeId) && !isHrOrManager) {
+        if (assignment.getEmployee() != null && !assignment.getEmployee().getId().equals(employeeId)
+                && !isHrOrManager) {
             throw new AccessDeniedException("Unauthorized access to report");
         }
 
         List<PmsKpi> allKpis = pmsKpiRepository.findByAssignment(assignment);
-        if (allKpis == null) allKpis = Collections.emptyList();
+        if (allKpis == null)
+            allKpis = Collections.emptyList();
 
         List<PmsKpi> roleKpis = allKpis.stream()
                 .filter(k -> k != null && !"HR_REVIEW_KPI".equals(k.getKpiCategory()))
@@ -66,10 +69,12 @@ public class ReportService {
                 .collect(Collectors.toList());
 
         List<EmployeeKpiRating> ratings = employeeKpiRatingRepository.findByAssignment(assignment);
-        if (ratings == null) ratings = Collections.emptyList();
+        if (ratings == null)
+            ratings = Collections.emptyList();
 
         List<EmployeeReview> reviews = employeeReviewRepository.findByAssignment(assignment);
-        if (reviews == null) reviews = Collections.emptyList();
+        if (reviews == null)
+            reviews = Collections.emptyList();
 
         double selfSum = 0.0;
         double mgrSum = 0.0;
@@ -78,26 +83,31 @@ public class ReportService {
         final List<EmployeeKpiRating> safeRatings = ratings;
 
         for (PmsKpi kpi : roleKpis) {
-            if (kpi == null) continue;
+            if (kpi == null)
+                continue;
             EmployeeKpiRating r = safeRatings.stream()
                     .filter(rt -> rt != null && rt.getKpi() != null && rt.getKpi().getId().equals(kpi.getId()))
                     .findFirst().orElse(null);
             double w = (kpi.getWeightage() != null ? kpi.getWeightage() : 0.0) / 100.0;
             if (r != null) {
-                if (r.getSelfRating() != null) selfSum += r.getSelfRating() * w;
-                if (r.getManagerRating() != null) mgrSum += r.getManagerRating() * w;
+                if (r.getSelfRating() != null)
+                    selfSum += r.getSelfRating() * w;
+                if (r.getManagerRating() != null)
+                    mgrSum += r.getManagerRating() * w;
             }
         }
 
         for (PmsKpi kpi : hrKpis) {
-            if (kpi == null) continue;
+            if (kpi == null)
+                continue;
             EmployeeKpiRating r = safeRatings.stream()
                     .filter(rt -> rt != null && rt.getKpi() != null && rt.getKpi().getId().equals(kpi.getId()))
                     .findFirst().orElse(null);
             double w = (kpi.getWeightage() != null ? kpi.getWeightage() : 0.0) / 100.0;
             if (r != null && r.getHrRating() != null) {
                 hrSum += r.getHrRating() * w;
-            } else if (assignment.getStatus() == PMSState.COMPLETED || assignment.getStatus() == PMSState.FINAL_RESULT_PUBLISHED) {
+            } else if (assignment.getStatus() == PMSState.COMPLETED
+                    || assignment.getStatus() == PMSState.FINAL_RESULT_PUBLISHED) {
                 hrSum += 5.0 * w;
             }
         }
@@ -112,7 +122,9 @@ public class ReportService {
         String empEmail = emp != null && emp.getEmail() != null ? emp.getEmail() : "-";
         String empDesignation = emp != null && emp.getDesignation() != null ? emp.getDesignation() : "-";
         String empDepartment = emp != null && emp.getDepartment() != null ? emp.getDepartment() : "-";
-        String empManager = emp != null && emp.getManager() != null && emp.getManager().getName() != null ? emp.getManager().getName() : "-";
+        String empManager = emp != null && emp.getManager() != null && emp.getManager().getName() != null
+                ? emp.getManager().getName()
+                : "-";
         String cycleMonth = assignment.getCycleMonth() != null ? assignment.getCycleMonth() : "N/A";
         String statusStr = assignment.getStatus() != null ? assignment.getStatus().name() : "N/A";
 
@@ -131,16 +143,25 @@ public class ReportService {
             ctx.currentStream.beginText();
             ctx.currentStream.setFont(ctx.fontBold, 9);
             ctx.currentStream.newLineAtOffset(50, ctx.yPosition);
-            ctx.currentStream.showText("Employee Name: " + sanitizeText(empName) + " (EMP-" + empIdStr + ") | Email: " + sanitizeText(empEmail));
+            ctx.currentStream.showText("Employee Name: " + sanitizeText(empName) + " (EMP-" + empIdStr + ") | Email: "
+                    + sanitizeText(empEmail));
             ctx.currentStream.newLineAtOffset(0, -14);
-            ctx.currentStream.showText("Designation: " + sanitizeText(empDesignation) + " | Department: " + sanitizeText(empDepartment) + " | Manager: " + sanitizeText(empManager));
+            ctx.currentStream.showText("Designation: " + sanitizeText(empDesignation) + " | Department: "
+                    + sanitizeText(empDepartment) + " | Manager: " + sanitizeText(empManager));
             ctx.currentStream.newLineAtOffset(0, -14);
             ctx.currentStream.showText("PMS Cycle: " + sanitizeText(cycleMonth) + " | Status: " + statusStr);
             ctx.currentStream.newLineAtOffset(0, -14);
-            ctx.currentStream.showText("Scores: Self (" + selfScore + ") | Manager (" + mgrScore + ") | HR (" + hrScore + ")");
+            ctx.currentStream
+                    .showText("Scores: Self (" + selfScore + ") | Manager (" + mgrScore + ") | HR (" + hrScore + ")");
             ctx.currentStream.newLineAtOffset(0, -14);
-            ctx.currentStream.showText("Final Performance Score: " + (assignment.getOverallScore() != null ? String.format("%.2f", assignment.getOverallScore()) : "N/A") +
-                    " / 5.00 (" + sanitizeText(assignment.getPerformanceGrade() != null ? assignment.getPerformanceGrade() : "Pending") + ")");
+            ctx.currentStream.showText("Final Performance Score: "
+                    + (assignment.getOverallScore() != null ? String.format("%.2f", assignment.getOverallScore())
+                            : "N/A")
+                    +
+                    " / 5.00 ("
+                    + sanitizeText(
+                            assignment.getPerformanceGrade() != null ? assignment.getPerformanceGrade() : "Pending")
+                    + ")");
             ctx.currentStream.endText();
             ctx.yPosition -= 80;
 
@@ -154,7 +175,8 @@ public class ReportService {
             ctx.yPosition -= 20;
 
             for (PmsKpi kpi : roleKpis) {
-                if (kpi == null) continue;
+                if (kpi == null)
+                    continue;
                 EmployeeKpiRating r = safeRatings.stream()
                         .filter(rt -> rt != null && rt.getKpi() != null && rt.getKpi().getId().equals(kpi.getId()))
                         .findFirst().orElse(null);
@@ -170,9 +192,11 @@ public class ReportService {
                 ctx.currentStream.showText("- " + sanitizeText(kpiNameStr) + " (Weight: " + weightVal + "%)");
                 ctx.currentStream.setFont(ctx.fontRegular, 8);
                 ctx.currentStream.newLineAtOffset(0, -12);
-                ctx.currentStream.showText("  Self Rating: " + (r != null && r.getSelfRating() != null ? r.getSelfRating() : "N/A") +
-                        " | Manager Rating: " + (r != null && r.getManagerRating() != null ? r.getManagerRating() : "N/A") +
-                        " | HR Rating: " + (r != null && r.getHrRating() != null ? r.getHrRating() : "N/A"));
+                ctx.currentStream.showText(
+                        "  Self Rating: " + (r != null && r.getSelfRating() != null ? r.getSelfRating() : "N/A") +
+                                " | Manager Rating: "
+                                + (r != null && r.getManagerRating() != null ? r.getManagerRating() : "N/A") +
+                                " | HR Rating: " + (r != null && r.getHrRating() != null ? r.getHrRating() : "N/A"));
                 ctx.currentStream.endText();
                 ctx.yPosition -= 26;
 
@@ -209,7 +233,8 @@ public class ReportService {
                 ctx.yPosition -= 20;
 
                 for (PmsKpi kpi : hrKpis) {
-                    if (kpi == null) continue;
+                    if (kpi == null)
+                        continue;
                     EmployeeKpiRating r = safeRatings.stream()
                             .filter(rt -> rt != null && rt.getKpi() != null && rt.getKpi().getId().equals(kpi.getId()))
                             .findFirst().orElse(null);
@@ -223,7 +248,8 @@ public class ReportService {
                     ctx.currentStream.beginText();
                     ctx.currentStream.setFont(ctx.fontBold, 9);
                     ctx.currentStream.newLineAtOffset(50, ctx.yPosition);
-                    ctx.currentStream.showText("- " + sanitizeText(kpiNameStr) + " (Weight: " + weightVal + "%) - HR Rating: " + hrRat + " / 5.00");
+                    ctx.currentStream.showText("- " + sanitizeText(kpiNameStr) + " (Weight: " + weightVal
+                            + "%) - HR Rating: " + hrRat + " / 5.00");
                     ctx.currentStream.endText();
                     ctx.yPosition -= 14;
 
@@ -248,7 +274,8 @@ public class ReportService {
                 ctx.yPosition -= 18;
 
                 for (EmployeeReview rev : reviews) {
-                    if (rev == null) continue;
+                    if (rev == null)
+                        continue;
                     ctx.checkSpace(40);
 
                     String roleName = rev.getReviewer() != null && rev.getReviewer().getRole() != null
@@ -343,12 +370,14 @@ public class ReportService {
     }
 
     private String sanitizeText(String input) {
-        if (input == null) return "";
+        if (input == null)
+            return "";
         return input.replaceAll("[\\r\\n]+", " ").replaceAll("[^\\x20-\\x7E]", "");
     }
 
     private List<String> wrapText(String text, int maxCharsPerLine) {
-        if (text == null || text.trim().isEmpty()) return Collections.emptyList();
+        if (text == null || text.trim().isEmpty())
+            return Collections.emptyList();
         List<String> result = new ArrayList<>();
         String[] words = text.split("\\s+");
         StringBuilder sb = new StringBuilder();
@@ -377,7 +406,8 @@ public class ReportService {
                 .orElseThrow(() -> new IllegalArgumentException("Assignment not found"));
 
         Employee reqUser = employeeRepository.findById(employeeId).orElse(null);
-        boolean isHrOrManager = reqUser != null && (reqUser.getRole() == Role.ROLE_HR || reqUser.getRole() == Role.ROLE_MANAGER);
+        boolean isHrOrManager = reqUser != null
+                && (reqUser.getRole() == Role.ROLE_HR || reqUser.getRole() == Role.ROLE_MANAGER);
 
         if (!assignment.getEmployee().getId().equals(employeeId) && !isHrOrManager) {
             throw new AccessDeniedException("Unauthorized access to report");
@@ -389,11 +419,14 @@ public class ReportService {
         double mgrSum = 0.0;
         double hrSum = 0.0;
         for (PmsKpi kpi : allKpis) {
-            EmployeeKpiRating r = ratings.stream().filter(rt -> rt.getKpi().getId().equals(kpi.getId())).findFirst().orElse(null);
+            EmployeeKpiRating r = ratings.stream().filter(rt -> rt.getKpi().getId().equals(kpi.getId())).findFirst()
+                    .orElse(null);
             double w = kpi.getWeightage() / 100.0;
             if (r != null) {
-                if (r.getManagerRating() != null) mgrSum += r.getManagerRating() * w;
-                if (r.getHrRating() != null) hrSum += r.getHrRating() * w;
+                if (r.getManagerRating() != null)
+                    mgrSum += r.getManagerRating() * w;
+                if (r.getHrRating() != null)
+                    hrSum += r.getHrRating() * w;
             }
         }
 
@@ -415,7 +448,7 @@ public class ReportService {
             Row rInfo1 = sheet.createRow(rowNum++);
             rInfo1.createCell(0).setCellValue("Employee Name:");
             rInfo1.createCell(1).setCellValue(assignment.getEmployee().getName());
-            
+
             Row rInfo2 = sheet.createRow(rowNum++);
             rInfo2.createCell(0).setCellValue("Employee ID:");
             rInfo2.createCell(1).setCellValue("EMP-" + assignment.getEmployee().getId());
@@ -434,17 +467,20 @@ public class ReportService {
 
             Row rInfo6 = sheet.createRow(rowNum++);
             rInfo6.createCell(0).setCellValue("Final Result:");
-            rInfo6.createCell(1).setCellValue(assignment.getOverallScore() != null ? assignment.getOverallScore() : 0.0);
+            rInfo6.createCell(1)
+                    .setCellValue(assignment.getOverallScore() != null ? assignment.getOverallScore() : 0.0);
 
             Row rInfo7 = sheet.createRow(rowNum++);
             rInfo7.createCell(0).setCellValue("Performance Grade:");
-            rInfo7.createCell(1).setCellValue(assignment.getPerformanceGrade() != null ? assignment.getPerformanceGrade() : "N/A");
+            rInfo7.createCell(1)
+                    .setCellValue(assignment.getPerformanceGrade() != null ? assignment.getPerformanceGrade() : "N/A");
 
             rowNum++; // Blank row
 
             // KPI Header row
             Row headerRow = sheet.createRow(rowNum++);
-            String[] columns = {"Category", "KPI Name", "Measurement Criteria", "Weightage", "Self Rating", "Employee Comment", "Manager Rating", "Manager Comment", "HR Rating", "HR Comment"};
+            String[] columns = { "Category", "KPI Name", "Measurement Criteria", "Weightage", "Self Rating",
+                    "Employee Comment", "Manager Rating", "Manager Comment", "HR Rating", "HR Comment" };
             for (int i = 0; i < columns.length; i++) {
                 Cell cell = headerRow.createCell(i);
                 cell.setCellValue(columns[i]);
@@ -458,15 +494,18 @@ public class ReportService {
                         .findFirst().orElse(null);
 
                 Row row = sheet.createRow(rowNum++);
-                row.createCell(0).setCellValue("HR_REVIEW_KPI".equals(kpi.getKpiCategory()) ? "HR Review KPI" : "Role KPI");
+                row.createCell(0)
+                        .setCellValue("HR_REVIEW_KPI".equals(kpi.getKpiCategory()) ? "HR Review KPI" : "Role KPI");
                 row.createCell(1).setCellValue(kpi.getKpiName());
                 row.createCell(2).setCellValue(kpi.getDescription());
                 row.createCell(3).setCellValue(kpi.getWeightage() + "%");
                 row.createCell(4).setCellValue(r != null && r.getSelfRating() != null ? r.getSelfRating() : 0.0);
-                row.createCell(5).setCellValue(r != null && r.getEmployeeComment() != null ? r.getEmployeeComment() : "");
+                row.createCell(5)
+                        .setCellValue(r != null && r.getEmployeeComment() != null ? r.getEmployeeComment() : "");
                 row.createCell(6).setCellValue(r != null && r.getManagerRating() != null ? r.getManagerRating() : 0.0);
                 row.createCell(7).setCellValue(r != null && r.getManagerComment() != null ? r.getManagerComment() : "");
-                row.createCell(8).setCellValue(r != null && r.getHrRating() != null ? r.getHrRating() : ("HR_REVIEW_KPI".equals(kpi.getKpiCategory()) ? 5.0 : 0.0));
+                row.createCell(8).setCellValue(r != null && r.getHrRating() != null ? r.getHrRating()
+                        : ("HR_REVIEW_KPI".equals(kpi.getKpiCategory()) ? 5.0 : 0.0));
                 row.createCell(9).setCellValue(r != null && r.getHrComment() != null ? r.getHrComment() : "");
             }
 

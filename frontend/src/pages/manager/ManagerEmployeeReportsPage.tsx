@@ -264,13 +264,12 @@ export const ManagerEmployeeReportsPage: React.FC = () => {
                       </td>
                       <td className="py-4 px-6">
                         <span
-                          className={`inline-flex items-center space-x-1 px-3 py-1 rounded-full text-xs font-bold ${
-                            isFinalized
+                          className={`inline-flex items-center space-x-1 px-3 py-1 rounded-full text-xs font-bold ${isFinalized
                               ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                               : emp.status === 'MANAGER_REVIEW_SUBMITTED'
-                              ? 'bg-blue-100 text-blue-800 border border-blue-200'
-                              : 'bg-amber-100 text-amber-800 border border-amber-200'
-                          }`}
+                                ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                                : 'bg-amber-100 text-amber-800 border border-amber-200'
+                            }`}
                         >
                           {isFinalized ? <Lock size={12} /> : <Clock size={12} />}
                           <span>{emp.status.replace(/_/g, ' ')}</span>

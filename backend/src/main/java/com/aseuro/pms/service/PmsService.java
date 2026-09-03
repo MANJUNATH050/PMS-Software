@@ -498,8 +498,11 @@ public class PmsService {
                     .hrRating(r != null ? r.getHrRating() : null)
                     .comments(r != null ? r.getComments() : null)
                     .employeeComments(r != null ? r.getComments() : null)
+                    .employeeComment(r != null ? r.getComments() : null)
                     .managerComments(r != null ? r.getManagerComment() : null)
+                    .managerComment(r != null ? r.getManagerComment() : null)
                     .hrComments(r != null ? r.getHrComment() : null)
+                    .hrComment(r != null ? r.getHrComment() : null)
                     .ratingStatus(r != null ? r.getStatus() : "PENDING")
                     .build();
         }).collect(Collectors.toList());
@@ -525,8 +528,11 @@ public class PmsService {
                     .hrRating(hrRat)
                     .comments(r != null ? r.getComments() : null)
                     .employeeComments(r != null ? r.getComments() : null)
+                    .employeeComment(r != null ? r.getComments() : null)
                     .managerComments(r != null ? r.getManagerComment() : null)
+                    .managerComment(r != null ? r.getManagerComment() : null)
                     .hrComments(r != null ? r.getHrComment() : null)
+                    .hrComment(r != null ? r.getHrComment() : null)
                     .ratingStatus(stat)
                     .build();
         }).collect(Collectors.toList());

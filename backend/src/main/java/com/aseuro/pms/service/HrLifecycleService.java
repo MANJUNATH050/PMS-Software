@@ -181,8 +181,11 @@ public class HrLifecycleService {
             km.put("hrRating", r != null ? r.getHrRating() : null);
             km.put("comments", r != null ? r.getComments() : null);
             km.put("employeeComments", r != null ? r.getComments() : null);
+            km.put("employeeComment", r != null ? r.getComments() : null);
             km.put("managerComments", r != null ? r.getManagerComment() : null);
+            km.put("managerComment", r != null ? r.getManagerComment() : null);
             km.put("hrComments", r != null ? r.getHrComment() : null);
+            km.put("hrComment", r != null ? r.getHrComment() : null);
             km.put("ratingStatus", r != null ? r.getStatus() : "PENDING");
 
             double wFactor = kpi.getWeightage() / 100.0;

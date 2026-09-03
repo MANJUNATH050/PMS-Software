@@ -15,7 +15,10 @@ public class KpiDto {
     private Double hrRating; // 0.0 to 5.0
     private String comments; // Employee comment
     private String employeeComments; // Alias for employee comment
+    private String employeeComment;
     private String managerComments; // Manager comment
+    private String managerComment;
     private String hrComments; // HR comment
+    private String hrComment;
     private String ratingStatus; // "DRAFT", "SUBMITTED", "COMPLETED", "PENDING"
 }

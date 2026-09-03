@@ -16,6 +16,17 @@ public class ManagerReviewRequest {
     @NotEmpty(message = "Ratings cannot be empty")
     private List<ManagerKpiRatingEntry> ratings;
     private String managerComments;
+    private String managerComment;
+
+    public String getEffectiveManagerComment() {
+        if (managerComments != null && !managerComments.trim().isEmpty()) {
+            return managerComments.trim();
+        }
+        if (managerComment != null && !managerComment.trim().isEmpty()) {
+            return managerComment.trim();
+        }
+        return null;
+    }
 
     @Data
     @Builder
@@ -25,5 +36,16 @@ public class ManagerReviewRequest {
         private Long kpiId;
         private Double managerRating;
         private String managerComments;
+        private String managerComment;
+
+        public String getEffectiveManagerComment() {
+            if (managerComments != null && !managerComments.trim().isEmpty()) {
+                return managerComments.trim();
+            }
+            if (managerComment != null && !managerComment.trim().isEmpty()) {
+                return managerComment.trim();
+            }
+            return null;
+        }
     }
 }
