@@ -1,5 +1,20 @@
 const getBaseUrl = (): string => {
-  let envUrl = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '');
+  let envUrl = (import.meta.env.VITE_API_BASE_URL || (typeof window !== 'undefined' ? (window as any).__API_BASE_URL__ : '') || '').trim().replace(/\/+$/, '');
+
+  if (!envUrl && typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host !== 'localhost' && host !== '127.0.0.1') {
+      if (host.endsWith('.onrender.com')) {
+        const parts = host.split('.');
+        const frontName = parts[0];
+        const backName = frontName.includes('frontend')
+          ? frontName.replace('frontend', 'backend')
+          : `${frontName}-backend`;
+        envUrl = `https://${backName}.onrender.com`;
+      }
+    }
+  }
+
   if (envUrl.endsWith('/api')) {
     envUrl = envUrl.slice(0, -4);
   }

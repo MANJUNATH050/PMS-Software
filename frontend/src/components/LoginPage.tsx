@@ -1,6 +1,7 @@
 import React, { useEffect, useState, type FormEvent } from 'react';
 import type { AuthUser } from '../types';
 import aseuroLogo from '../assets/aseuro-logo.png';
+import { authApi } from '../api/authApi';
 
 interface LoginPageProps { onLoginSuccess?: (user: AuthUser) => void; }
 type Notice = { type: 'error' | 'success'; message: string };
@@ -29,24 +30,23 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [, setTick] = useState(0);
   const locked = !!lockedUntil && new Date(lockedUntil).getTime() > Date.now();
 
+  useEffect(() => {
+    if (!lockedUntil) return;
+    const id = setInterval(() => {
+      if (new Date(lockedUntil).getTime() <= Date.now()) { setLockedUntil(null); localStorage.removeItem(lockoutStorageKey); clearInterval(id); }
+      else setTick(t => t + 1);
+    }, 1000);
+    return () => clearInterval(id);
+  }, [lockedUntil]);
+
+  const inform = (type: 'error' | 'success', message: string) => setNotice({ type, message });
+
   const applyLock = (until: string | null) => {
     setLockedUntil(until);
     if (until) localStorage.setItem(lockoutStorageKey, until);
     else localStorage.removeItem(lockoutStorageKey);
   };
 
-  useEffect(() => {
-    if (!lockedUntil) return;
-    const interval = window.setInterval(() => {
-      setTick(Date.now());
-      if (new Date(lockedUntil).getTime() <= Date.now()) {
-        applyLock(null);
-      }
-    }, 1000);
-    return () => window.clearInterval(interval);
-  }, [lockedUntil]);
-
-  const inform = (type: Notice['type'], message: string) => setNotice({ type, message });
   const passwordField = (value: string, update: (value: string) => void, placeholder: string, autoComplete: string) => (
     <div className="styled-input-wrap">
       <span className="input-prefix-icon">🔒</span>
@@ -61,13 +61,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     if (!email.trim()) return inform('error', 'Email is not found.');
     setLoading(true);
     try {
-      const response = await fetch('/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email.trim(), password }) });
-      const data = await response.json().catch(() => null);
-      if (!response.ok) {
-        // Only the backend may lock an account. The UI displays its persisted expiry.
-        if (data?.lockedUntil) applyLock(data.lockedUntil);
-        throw new Error(data?.message || 'Login failed.');
-      }
+      const data = await authApi.login({ email: email.trim(), password });
       applyLock(null);
       localStorage.setItem('pms_token', data.token);
       localStorage.setItem('pms_user', JSON.stringify(data));
@@ -83,7 +77,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           window.location.href = '/dashboard';
         }
       }
-    } catch (error) { inform('error', error instanceof Error ? error.message : 'Login failed.'); } finally { setLoading(false); }
+    } catch (error: any) { inform('error', error?.response?.data?.message || error?.message || 'Login failed.'); } finally { setLoading(false); }
   };
 
   const resetPassword = async (event: FormEvent) => {
@@ -93,13 +87,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     if (newPassword !== confirmPassword) return inform('error', 'New password and confirm password must match.');
     setLoading(true);
     try {
-      const response = await fetch('/api/auth/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email.trim(), newPassword }) });
-      const data = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(data?.message || 'Unable to change password.');
+      await authApi.resetPassword({ email: email.trim(), newPassword, confirmPassword });
       setPassword(''); setNewPassword(''); setConfirmPassword('');
       inform('success', 'Password changed successfully. You can now sign in with your new password.');
       window.setTimeout(() => setResetMode(false), 1400);
-    } catch (error) { inform('error', error instanceof Error ? error.message : 'Unable to change password.'); } finally { setLoading(false); }
+    } catch (error: any) { inform('error', error?.response?.data?.message || error?.message || 'Unable to change password.'); } finally { setLoading(false); }
   };
 
   return <div className="login-screen">
