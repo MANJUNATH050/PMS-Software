@@ -45,9 +45,10 @@ const getAuthHeaders = (): Record<string, string> => {
 const handleResponse = async (res: Response, responseType?: string) => {
   if (res.status === 401) {
     localStorage.removeItem('pms_token');
+    localStorage.removeItem('pms_access_token');
     localStorage.removeItem('pms_user');
     if (window.location.pathname !== '/login') {
-      window.location.href = '/session-expired';
+      window.location.href = '/login';
     }
   }
 

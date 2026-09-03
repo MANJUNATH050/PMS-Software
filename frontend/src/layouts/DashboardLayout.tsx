@@ -87,7 +87,6 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
   };
 
   const currentNav = navigation.find(n => n.href === location.pathname);
